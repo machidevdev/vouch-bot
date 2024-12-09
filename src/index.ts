@@ -1,4 +1,4 @@
-import { Context, Telegraf } from 'telegraf';
+import { Context, Telegraf, } from 'telegraf';
 import * as dotenv from 'dotenv';
 import { loggerMiddleware } from './middleware/logger';
 import { MyContext } from './types';
@@ -24,9 +24,7 @@ bot.command('start', async (ctx) => {
   await ctx.reply('Welcome! Bot is running.');
 });
 
-bot.command('help', async (ctx) => {
-  await ctx.reply('How can I help you?');
-});
+
 
 
 // Add this function to format vote messages
@@ -46,8 +44,8 @@ function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: 
 Voting for: <a href="https://x.com/${twitterUsername}">@${twitterUsername}</a>
 
 <b>Current votes:</b>
-IN: <b>${upvotes}</b>
-OUT: <b>${downvotes}</b>${status}`;
+✅: <b>${upvotes}</b>
+❌: <b>${downvotes}</b>${status}`;
 }
 
 bot.command('vouch', async (ctx) => {
@@ -73,6 +71,11 @@ bot.command('vouch', async (ctx) => {
     return;
   }
 
+  // Prevent vouching for the bot
+  if (username.toLowerCase() === 'safe_magic_bot') {
+    return;
+  }
+
   try {
     const existingVote = await prisma.vote.findFirst({
       where: {
@@ -81,7 +84,13 @@ bot.command('vouch', async (ctx) => {
     });
 
     if (existingVote) {
-      await ctx.reply(`Vouch already exists.`);
+      // Forward existing vote message
+      ctx.sendMessage('Vouch already exists', {
+        reply_parameters: {
+          message_id: Number(existingVote.messageId),
+          chat_id: Number(existingVote.chatId)
+        }
+      })
       return;
     }
   } catch (error) {
@@ -98,8 +107,8 @@ bot.command('vouch', async (ctx) => {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: 'In (0)', callback_data: 'vote_up' },
-            { text: 'Out (0)', callback_data: 'vote_down' }
+            { text: '✅ (0)', callback_data: 'vote_up' },
+            { text: '❌ (0)', callback_data: 'vote_down' }
           ]
         ]
       }
@@ -120,6 +129,8 @@ bot.command('vouch', async (ctx) => {
     await ctx.reply('Sorry, something went wrong.');
   }
 });
+
+
 
 bot.action(/vote_(up|down)/, async (ctx) => {
   if (!ctx.callbackQuery.message) return;
@@ -150,7 +161,16 @@ bot.action(/vote_(up|down)/, async (ctx) => {
       return;
     }
 
-    // Handle vote
+    // Check if user has already voted
+    const hasUpvoted = vote.upvoterUsernames.includes(voterUsername);
+    const hasDownvoted = vote.downvoterUsernames.includes(voterUsername);
+
+    if (isUpvote && hasUpvoted || !isUpvote && hasDownvoted) {
+      await ctx.answerCbQuery('Already voted!');
+      return;
+    }
+
+    // Handle vote change
     const updateData = isUpvote
       ? {
           upvoterUsernames: [...vote.upvoterUsernames, voterUsername],
@@ -168,7 +188,7 @@ bot.action(/vote_(up|down)/, async (ctx) => {
 
     // Update message with new vote counts
     await updateVoteMessage(ctx, vote.id);
-    await ctx.answerCbQuery('Vote recorded!');
+    await ctx.answerCbQuery(hasUpvoted || hasDownvoted ? 'Vote changed!' : 'Vote recorded!');
 
   } catch (error) {
     console.error('Error:', error);
@@ -194,8 +214,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: `In (${vote.upvoterUsernames.length})`, callback_data: 'vote_up' },
-            { text: `Out (${vote.downvoterUsernames.length})`, callback_data: 'vote_down' }
+            { text: `✅ (${vote.upvoterUsernames.length})`, callback_data: 'vote_up' },
+            { text: `❌ (${vote.downvoterUsernames.length})`, callback_data: 'vote_down' }
           ]
         ]
       }
