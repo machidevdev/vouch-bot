@@ -1,0 +1,26 @@
+{
+  "name": "up-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.0.1",
+    "dotenv": "^16.x.x",
+    "telegraf": "^4.15.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.4",
+    "prisma": "^6.0.1",
+    "ts-node": "^10.x.x",
+    "ts-node-dev": "^2.x.x",
+    "typescript": "^5.x.x"
+  }
+}
