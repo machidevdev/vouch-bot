@@ -17,6 +17,7 @@ model Vote {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  createdBy String
   
   // Store arrays of Telegram usernames for all votes
   upvoterUsernames    String[] @default([])

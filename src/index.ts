@@ -120,7 +120,8 @@ bot.command('vouch', async (ctx) => {
         messageId: BigInt(message.message_id),
         chatId: BigInt(ctx.chat.id),
         upvoterUsernames: [],
-        downvoterUsernames: []
+        downvoterUsernames: [],
+        createdBy: ctx.from.username || ctx.from.id.toString()
       }
     });
 
