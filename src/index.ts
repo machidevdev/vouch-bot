@@ -31,13 +31,13 @@ bot.command('start', async (ctx) => {
 function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number): string {
   let status = '';
   
-  if (upvotes >= 5) {
+  if (upvotes >= 20) {
     status = '\n\n✅ <b>Status: ACCEPTED</b>\nThis user has been vouched for by the community.';
   } else if (downvotes >= 3) {
     status = '\n\n❌ <b>Status: REJECTED</b>\nThis user has been rejected by the community.';
   } else {
-    const votesNeeded = 5 - upvotes;
-    status = `\n\n⏳ <b>Status: PENDING</b>\n${votesNeeded} more IN votes needed for acceptance.`;
+    const votesNeeded = 20 - upvotes;
+    status = `\n\n⏳ <b>Status: PENDING</b>\n${votesNeeded} more ✅ votes needed for acceptance.`;
   }
 
   return `
@@ -65,7 +65,7 @@ bot.command('vouch', async (ctx) => {
       username = usernameMatch[1];
     }
   }
-
+  
   if (!username) {
     await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username or /vouch https://x.com/username');
     return;
