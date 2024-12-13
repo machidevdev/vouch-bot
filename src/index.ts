@@ -28,7 +28,7 @@ bot.command('start', async (ctx) => {
 
 
 // Add this function to format vote messages
-function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number): string {
+function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string): string {
   let status = '';
   
   if (upvotes >= 20) {
@@ -42,10 +42,38 @@ function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: 
 
   return `
 Voting for: <a href="https://x.com/${twitterUsername}">@${twitterUsername}</a>
+Vouched by: @${createdBy}
 
 <b>Current votes:</b>
 ✅: <b>${upvotes}</b>
 ❌: <b>${downvotes}</b>${status}`;
+}
+
+async function checkTwitterAccountExists(username: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://x.com/${username}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0'
+      }
+    });
+    
+    if (response.status === 404) {
+      console.log('Account does not exist');
+      return false;
+    }
+    
+    const text = await response.text();
+    console.log(text);
+    return !text.includes("This account doesn't exist");
+  } catch (error) {
+    console.error('Error checking Twitter account:', error);
+    return false;
+  }
 }
 
 bot.command('vouch', async (ctx) => {
@@ -76,6 +104,7 @@ bot.command('vouch', async (ctx) => {
     return;
   }
 
+
   try {
     const existingVote = await prisma.vote.findFirst({
       where: {
@@ -102,7 +131,7 @@ bot.command('vouch', async (ctx) => {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
     const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 0, 0),
+      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString()),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -219,7 +248,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
     formatVoteMessage(
       vote.twitterUsername,
       vote.upvoterUsernames.length,
-      vote.downvoterUsernames.length
+      vote.downvoterUsernames.length,
+      vote.createdBy
     ),
     {
       parse_mode: 'HTML',
