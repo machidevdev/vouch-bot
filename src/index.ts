@@ -166,21 +166,33 @@ bot.action(/vote_(up|down)/, async (ctx) => {
     const hasUpvoted = vote.upvoterUsernames.includes(voterUsername);
     const hasDownvoted = vote.downvoterUsernames.includes(voterUsername);
 
-    if (isUpvote && hasUpvoted || !isUpvote && hasDownvoted) {
-      await ctx.answerCbQuery('Already voted!');
-      return;
+    // Handle vote toggle and changes
+    let updateData;
+    if (isUpvote && hasUpvoted) {
+      // Remove upvote
+      updateData = {
+        upvoterUsernames: vote.upvoterUsernames.filter(username => username !== voterUsername)
+      };
+      await ctx.answerCbQuery('Upvote removed!');
+    } else if (!isUpvote && hasDownvoted) {
+      // Remove downvote
+      updateData = {
+        downvoterUsernames: vote.downvoterUsernames.filter(username => username !== voterUsername)
+      };
+      await ctx.answerCbQuery('Downvote removed!');
+    } else {
+      // Add new vote and remove opposite if exists
+      updateData = isUpvote
+        ? {
+            upvoterUsernames: [...vote.upvoterUsernames, voterUsername],
+            downvoterUsernames: vote.downvoterUsernames.filter(username => username !== voterUsername)
+          }
+        : {
+            downvoterUsernames: [...vote.downvoterUsernames, voterUsername],
+            upvoterUsernames: vote.upvoterUsernames.filter(username => username !== voterUsername)
+          };
+      await ctx.answerCbQuery(hasUpvoted || hasDownvoted ? 'Vote changed!' : 'Vote recorded!');
     }
-
-    // Handle vote change
-    const updateData = isUpvote
-      ? {
-          upvoterUsernames: [...vote.upvoterUsernames, voterUsername],
-          downvoterUsernames: vote.downvoterUsernames.filter(username => username !== voterUsername)
-        }
-      : {
-          downvoterUsernames: [...vote.downvoterUsernames, voterUsername],
-          upvoterUsernames: vote.upvoterUsernames.filter(username => username !== voterUsername)
-        };
 
     await prisma.vote.update({
       where: { id: vote.id },
@@ -189,7 +201,6 @@ bot.action(/vote_(up|down)/, async (ctx) => {
 
     // Update message with new vote counts
     await updateVoteMessage(ctx, vote.id);
-    await ctx.answerCbQuery(hasUpvoted || hasDownvoted ? 'Vote changed!' : 'Vote recorded!');
 
   } catch (error) {
     console.error('Error:', error);
