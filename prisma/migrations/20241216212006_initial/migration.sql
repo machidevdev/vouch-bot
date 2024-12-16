@@ -7,6 +7,7 @@ CREATE TABLE "Vote" (
     "upvoterUsernames" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "downvoterUsernames" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "twitterUsername" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
     "messageId" BIGINT NOT NULL,
     "chatId" BIGINT NOT NULL,
 

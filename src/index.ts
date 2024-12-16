@@ -1,40 +1,24 @@
 import { Context, Telegraf, } from 'telegraf';
 import * as dotenv from 'dotenv';
 import { loggerMiddleware } from './middleware/logger';
+import { authMiddleware } from './middleware/auth';
 import { MyContext } from './types';
 import { PrismaClient } from '@prisma/client';
-
 // Load environment variables
 dotenv.config();
 
 // Initialize your bot
 const prisma = new PrismaClient();
-const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
+const bot = new Telegraf(process.env.BOT_TOKEN!);
 
-// Register the logger middleware
+// Register middlewares
 bot.use(loggerMiddleware);
-
-
-// Add these at the top with other global variables
-interface VoteThresholds {
-  requiredUpvotes: number;
-  maxDownvotes: number;
-}
-
-let currentThresholds: VoteThresholds = {
-  requiredUpvotes: 20,
-  maxDownvotes: 3
-};
-
-
+bot.use(authMiddleware());
 
 // Command handlers
 bot.command('start', async (ctx) => {
   await ctx.reply('Welcome! Bot is running.');
 });
-
-
-
 
 // Add this function to format vote messages
 function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string): string {
@@ -60,12 +44,9 @@ Vouched by: @${createdBy}
 ❌: <b>${downvotes}</b>${statusMessage}`;
 }
 
-
-
 bot.command('vouch', async (ctx) => {
   const messageText = ctx.message.text;
   let username: string | null = null;
-
   // Check for Twitter URL (with or without https://)
   const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s]+)/;
   const urlMatch = messageText.match(twitterUrlRegex);
@@ -79,7 +60,6 @@ bot.command('vouch', async (ctx) => {
       username = usernameMatch[1];
     }
   }
-  
   if (!username) {
     await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username or /vouch https://x.com/username');
     return;
@@ -89,7 +69,6 @@ bot.command('vouch', async (ctx) => {
   if (username.toLowerCase() === 'safe_magic_bot') {
     return;
   }
-
 
   try {
     const existingVote = await prisma.vote.findFirst({
@@ -146,8 +125,6 @@ bot.command('vouch', async (ctx) => {
     await ctx.reply('Sorry, something went wrong.');
   }
 });
-
-
 
 bot.action(/vote_(up|down)/, async (ctx) => {
   if (!ctx.callbackQuery.message) return;
@@ -253,131 +230,7 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
   );
 }
 
-// Add this helper function for delays
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
-// Add this helper function for retrying failed operations
-async function retryOperation<T>(
-  operation: () => Promise<T>,
-  retries: number = 3,
-  delayMs: number = 1000
-): Promise<T> {
-  let lastError: any;
-  
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await operation();
-    } catch (error) {
-      console.log(`Attempt ${i + 1} failed, retrying in ${delayMs}ms...`);
-      lastError = error;
-      await delay(delayMs);
-    }
-  }
-  
-  console.error('All retries failed:', lastError);  
-  throw lastError;
-}
-
-bot.command('update', async (ctx) => {
-  console.log('Updating thresholds');
-  const args = ctx.message.text.split(' ');
-  if (args.length !== 4) {
-    await ctx.reply('Usage: /update <requiredUpvotes> <maxDownvotes> <daysToLookBack>');
-    return;
-  }
-
-  const requiredUpvotes = parseInt(args[1]);
-  const maxDownvotes = parseInt(args[2]);
-  const daysToLookBack = parseInt(args[3]);
-
-  if (isNaN(requiredUpvotes) || isNaN(maxDownvotes) || isNaN(daysToLookBack)) {
-    await ctx.reply('Please provide valid numbers');
-    return;
-  }
-
-  try {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToLookBack);
-
-    const votes = await prisma.vote.findMany({
-      where: {
-        createdAt: {
-          gte: cutoffDate
-        }
-      }
-    });
-    
-    console.log(`Found ${votes.length} votes in the last ${daysToLookBack} days`);
-    let updatedCount = 0;
-    let failedCount = 0;
-
-    // Update each vote's status and message with delay
-    for (const vote of votes) {
-      console.log('Updating vote:', vote.id);
-      try {
-        let newStatus = 'pending';
-        if (vote.upvoterUsernames.length >= requiredUpvotes) {
-          newStatus = 'approved';
-        } else if (vote.downvoterUsernames.length >= maxDownvotes) {
-          newStatus = 'rejected';
-        }
-
-        // Update status in database
-        await prisma.vote.update({
-          where: { id: vote.id },
-          data: { status: newStatus }
-        });
-
-        // Update message with retry logic
-        await retryOperation(async () => {
-          await ctx.telegram.editMessageCaption(
-            vote.chatId.toString(),
-            Number(vote.messageId),
-            undefined,
-            formatVoteMessage(
-              vote.twitterUsername,
-              vote.upvoterUsernames.length,
-              vote.downvoterUsernames.length,
-              vote.createdBy,
-              newStatus
-            ),
-            {
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: `✅ (${vote.upvoterUsernames.length})`, callback_data: 'vote_up' },
-                    { text: `❌ (${vote.downvoterUsernames.length})`, callback_data: 'vote_down' }
-                  ]
-                ]
-              }
-            }
-          );
-        }, 3, 3000); // 3 retries, 3 second delay between retries
-
-        updatedCount++;
-        await delay(3000); // Wait 3 seconds between updates
-      } catch (error) {
-        console.error(`Failed to update message for vote ID ${vote.id} after retries:`, error);
-        failedCount++;
-      }
-    }
-
-    await ctx.reply(
-      `Update complete:\n` +
-      `✅ Successfully updated: ${updatedCount}\n` +
-      `❌ Failed to update: ${failedCount}\n` +
-      `Settings:\n` +
-      `Required upvotes: ${requiredUpvotes}\n` +
-      `Max downvotes: ${maxDownvotes}`
-    );
-  } catch (error) {
-    console.error('Error updating messages:', error);
-    await ctx.reply('Error updating messages');
-  }
-});
 
 // Add this after your other command handlers
 bot.on('text', async (ctx) => {
@@ -433,7 +286,6 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// Add this command to update thresholds and refresh messages
 
 
 // Start bot

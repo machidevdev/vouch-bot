@@ -8,7 +8,8 @@ export function loggerMiddleware<T extends Context>(ctx: T, next: () => Promise<
         updateType: ctx.updateType,
         messageType: ctx.updateType,
         from: ctx.from?.username || 'unknown',
-        content: message?.text || 'non-text content'
+        content: message?.text || 'non-text content',
+        chatId: ctx.chat?.id.toString()
     };
 
     console.log('Incoming message:', messageInfo);
