@@ -15,6 +15,17 @@ const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
 bot.use(loggerMiddleware);
 
 
+// Add these at the top with other global variables
+interface VoteThresholds {
+  requiredUpvotes: number;
+  maxDownvotes: number;
+}
+
+let currentThresholds: VoteThresholds = {
+  requiredUpvotes: 20,
+  maxDownvotes: 3
+};
+
 bot.telegram.setMyCommands([
   { command: 'vouch', description: 'Vouch for a user, using a Twitter username (@milady) or URL (https://x.com/milady)' },
 ]); 
@@ -28,16 +39,18 @@ bot.command('start', async (ctx) => {
 
 
 // Add this function to format vote messages
-function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string): string {
-  let status = '';
+function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string): string {
+  let statusMessage = '';
   
-  if (upvotes >= 20) {
-    status = '\n\n✅ <b>Status: ACCEPTED</b>\nThis user has been vouched for by the community.';
-  } else if (downvotes >= 3) {
-    status = '\n\n❌ <b>Status: REJECTED</b>\nThis user has been rejected by the community.';
-  } else {
-    const votesNeeded = 20 - upvotes;
-    status = `\n\n⏳ <b>Status: PENDING</b>\n${votesNeeded} more ✅ votes needed for acceptance.`;
+  switch (status) {
+    case 'approved':
+      statusMessage = '\n\n✅ <b>Status: ACCEPTED</b>\nThis user has been vouched for by the community.';
+      break;
+    case 'rejected':
+      statusMessage = '\n\n❌ <b>Status: REJECTED</b>\nThis user has been rejected by the community.';
+      break;
+    default:
+      statusMessage = `\n\n⏳ <b>Status: PENDING</b>`;
   }
 
   return `
@@ -46,35 +59,10 @@ Vouched by: @${createdBy}
 
 <b>Current votes:</b>
 ✅: <b>${upvotes}</b>
-❌: <b>${downvotes}</b>${status}`;
+❌: <b>${downvotes}</b>${statusMessage}`;
 }
 
-async function checkTwitterAccountExists(username: string): Promise<boolean> {
-  try {
-    const response = await fetch(`https://x.com/${username}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0'
-      }
-    });
-    
-    if (response.status === 404) {
-      console.log('Account does not exist');
-      return false;
-    }
-    
-    const text = await response.text();
-    console.log(text);
-    return !text.includes("This account doesn't exist");
-  } catch (error) {
-    console.error('Error checking Twitter account:', error);
-    return false;
-  }
-}
+
 
 bot.command('vouch', async (ctx) => {
   const messageText = ctx.message.text;
@@ -131,7 +119,7 @@ bot.command('vouch', async (ctx) => {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
     const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString()),
+      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString(), 'pending'),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -150,7 +138,8 @@ bot.command('vouch', async (ctx) => {
         chatId: BigInt(ctx.chat.id),
         upvoterUsernames: [],
         downvoterUsernames: [],
-        createdBy: ctx.from.username || ctx.from.id.toString()
+        createdBy: ctx.from.username || ctx.from.id.toString(),
+        status: 'pending'
       }
     });
 
@@ -249,7 +238,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
       vote.twitterUsername,
       vote.upvoterUsernames.length,
       vote.downvoterUsernames.length,
-      vote.createdBy
+      vote.createdBy,
+      vote.status
     ),
     {
       parse_mode: 'HTML',
@@ -264,6 +254,132 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
     }
   );
 }
+
+// Add this helper function for delays
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Add this helper function for retrying failed operations
+async function retryOperation<T>(
+  operation: () => Promise<T>,
+  retries: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log(`Attempt ${i + 1} failed, retrying in ${delayMs}ms...`);
+      lastError = error;
+      await delay(delayMs);
+    }
+  }
+  
+  console.error('All retries failed:', lastError);  
+  throw lastError;
+}
+
+bot.command('update', async (ctx) => {
+  console.log('Updating thresholds');
+  const args = ctx.message.text.split(' ');
+  if (args.length !== 4) {
+    await ctx.reply('Usage: /update <requiredUpvotes> <maxDownvotes> <daysToLookBack>');
+    return;
+  }
+
+  const requiredUpvotes = parseInt(args[1]);
+  const maxDownvotes = parseInt(args[2]);
+  const daysToLookBack = parseInt(args[3]);
+
+  if (isNaN(requiredUpvotes) || isNaN(maxDownvotes) || isNaN(daysToLookBack)) {
+    await ctx.reply('Please provide valid numbers');
+    return;
+  }
+
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToLookBack);
+
+    const votes = await prisma.vote.findMany({
+      where: {
+        createdAt: {
+          gte: cutoffDate
+        }
+      }
+    });
+    
+    console.log(`Found ${votes.length} votes in the last ${daysToLookBack} days`);
+    let updatedCount = 0;
+    let failedCount = 0;
+
+    // Update each vote's status and message with delay
+    for (const vote of votes) {
+      console.log('Updating vote:', vote.id);
+      try {
+        let newStatus = 'pending';
+        if (vote.upvoterUsernames.length >= requiredUpvotes) {
+          newStatus = 'approved';
+        } else if (vote.downvoterUsernames.length >= maxDownvotes) {
+          newStatus = 'rejected';
+        }
+
+        // Update status in database
+        await prisma.vote.update({
+          where: { id: vote.id },
+          data: { status: newStatus }
+        });
+
+        // Update message with retry logic
+        await retryOperation(async () => {
+          await ctx.telegram.editMessageCaption(
+            vote.chatId.toString(),
+            Number(vote.messageId),
+            undefined,
+            formatVoteMessage(
+              vote.twitterUsername,
+              vote.upvoterUsernames.length,
+              vote.downvoterUsernames.length,
+              vote.createdBy,
+              newStatus
+            ),
+            {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: `✅ (${vote.upvoterUsernames.length})`, callback_data: 'vote_up' },
+                    { text: `❌ (${vote.downvoterUsernames.length})`, callback_data: 'vote_down' }
+                  ]
+                ]
+              }
+            }
+          );
+        }, 3, 3000); // 3 retries, 3 second delay between retries
+
+        updatedCount++;
+        await delay(3000); // Wait 3 seconds between updates
+      } catch (error) {
+        console.error(`Failed to update message for vote ID ${vote.id} after retries:`, error);
+        failedCount++;
+      }
+    }
+
+    await ctx.reply(
+      `Update complete:\n` +
+      `✅ Successfully updated: ${updatedCount}\n` +
+      `❌ Failed to update: ${failedCount}\n` +
+      `Settings:\n` +
+      `Required upvotes: ${requiredUpvotes}\n` +
+      `Max downvotes: ${maxDownvotes}`
+    );
+  } catch (error) {
+    console.error('Error updating messages:', error);
+    await ctx.reply('Error updating messages');
+  }
+});
 
 // Add this after your other command handlers
 bot.on('text', async (ctx) => {
@@ -318,6 +434,9 @@ bot.on('text', async (ctx) => {
     console.error('Error handling vote deletion:', error);
   }
 });
+
+// Add this command to update thresholds and refresh messages
+
 
 // Start bot
 bot.launch()

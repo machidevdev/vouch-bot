@@ -26,6 +26,9 @@ model Vote {
   // Twitter username being voted on
   twitterUsername String
   
+  // Vote status: 'pending', 'approved', or 'rejected'
+  status String @default("pending")
+  
   // Telegram message ID for reference
   messageId BigInt
   chatId    BigInt
