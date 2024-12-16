@@ -26,9 +26,7 @@ let currentThresholds: VoteThresholds = {
   maxDownvotes: 3
 };
 
-bot.telegram.setMyCommands([
-  { command: 'vouch', description: 'Vouch for a user, using a Twitter username (@milady) or URL (https://x.com/milady)' },
-]); 
+
 
 // Command handlers
 bot.command('start', async (ctx) => {
