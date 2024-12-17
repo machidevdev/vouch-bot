@@ -32,6 +32,8 @@ model Vote {
   // Telegram message ID for reference
   messageId BigInt
   chatId    BigInt
+
+  description        String?   // Optional description for the vouch
   
   @@unique([messageId, chatId])
 }

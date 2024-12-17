@@ -20,7 +20,6 @@ export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<v
   // Check if the message is from the allowed group
   if (chatId !== allowedGroupId) {
     console.log(`Unauthorized access attempt from chat ID: ${chatId}`);
-    await ctx.reply('This bot is only available in the authorized group.');
     return;
   }
 
