@@ -249,8 +249,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
 bot.command('help', async (ctx) => {
   const message = `*Available Commands:*
 
-• \`/vouch @username\` \\- Create a new vouch
-• \`/vouch https://x\\.com/username\` \\- Create a vouch from URL
+• \`/vouch @username [description]\` \\- Create a new vouch
+• \`/vouch https://x\\.com/username [description]\` \\- Create a vouch from URL
 • Reply with \`x\` to delete your own vouch`;
   await ctx.replyWithMarkdownV2(message);
 });
