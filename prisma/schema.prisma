@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,26 +8,17 @@ datasource db {
 }
 
 model Vote {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
-  
-  // Store arrays of Telegram usernames for all votes
-  upvoterUsernames    String[] @default([])
-  downvoterUsernames  String[] @default([])
-  
-  // Twitter username being voted on
-  twitterUsername String
-  
-  // Vote status: 'pending', 'approved', or 'rejected'
-  status String @default("pending")
-  
-  // Telegram message ID for reference
-  messageId BigInt
-  chatId    BigInt
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String
+  upvoterUsernames   String[] @default([])
+  downvoterUsernames String[] @default([])
+  twitterUsername    String
+  status             String   @default("pending")
+  messageId          BigInt
+  chatId             BigInt
+  description        String? @db.Text
 
-  description        String?   // Optional description for the vouch
-  
   @@unique([messageId, chatId])
 }
