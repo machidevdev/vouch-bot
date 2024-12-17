@@ -239,6 +239,10 @@ bot.command('help', async (ctx) => {
   await ctx.replyWithMarkdownV2(message);
 });
 
+bot.command('ping', async (ctx) => {
+  await ctx.reply('Pong!');
+});
+
 
 
 // Add this after your other command handlers
