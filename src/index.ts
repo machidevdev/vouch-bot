@@ -21,7 +21,7 @@ bot.command('start', async (ctx) => {
 });
 
 // Add this function to format vote messages
-function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string): string {
+function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string, description?: string): string {
   let statusMessage = '';
   
   switch (status) {
@@ -35,9 +35,11 @@ function formatVoteMessage(twitterUsername: string, upvotes: number, downvotes: 
       statusMessage = `\n\n⏳ <b>Status: PENDING</b>`;
   }
 
+  const descriptionText = description ? `\n\n<b>Description:</b>\n${description}` : '';
+
   return `
 Voting for: <a href="https://x.com/${twitterUsername}">@${twitterUsername}</a>
-Vouched by: @${createdBy}
+Vouched by: @${createdBy}${descriptionText}
 
 <b>Current votes:</b>
 ✅: <b>${upvotes}</b>
@@ -47,21 +49,33 @@ Vouched by: @${createdBy}
 bot.command('vouch', async (ctx) => {
   const messageText = ctx.message.text;
   let username: string | null = null;
-  // Check for Twitter URL (with or without https://)
+  let description: string | null = null;
+
+  // Extract username and description
+  const parts = messageText.split(/\s+/);
+  if (parts.length < 2) {
+    await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username [description] or /vouch https://x.com/username [description]');
+    return;
+  }
+
+  // Check for Twitter URL
   const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s]+)/;
-  const urlMatch = messageText.match(twitterUrlRegex);
+  const urlMatch = parts[1].match(twitterUrlRegex);
   
   if (urlMatch) {
     username = urlMatch[1];
+    description = parts.slice(2).join(' ') || null;
   } else {
     // Check for username format (with @)
-    const usernameMatch = messageText.match(/@(\w+)/);
+    const usernameMatch = parts[1].match(/@?(\w+)/);
     if (usernameMatch) {
       username = usernameMatch[1];
+      description = parts.slice(2).join(' ') || null;
     }
   }
+
   if (!username) {
-    await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username or /vouch https://x.com/username');
+    await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username [description] or /vouch https://x.com/username [description]');
     return;
   }
 
@@ -96,7 +110,7 @@ bot.command('vouch', async (ctx) => {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
     const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString(), 'pending'),
+      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -116,7 +130,8 @@ bot.command('vouch', async (ctx) => {
         upvoterUsernames: [],
         downvoterUsernames: [],
         createdBy: ctx.from.username || ctx.from.id.toString(),
-        status: 'pending'
+        status: 'pending',
+        description: description
       }
     });
 
@@ -214,7 +229,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
       vote.upvoterUsernames.length,
       vote.downvoterUsernames.length,
       vote.createdBy,
-      vote.status
+      vote.status,
+      vote.description ?? ''
     ),
     {
       parse_mode: 'HTML',
@@ -237,6 +253,10 @@ bot.command('help', async (ctx) => {
 • \`/vouch https://x\\.com/username\` \\- Create a vouch from URL
 • Reply with \`x\` to delete your own vouch`;
   await ctx.replyWithMarkdownV2(message);
+});
+
+bot.command('ping', async (ctx) => {
+  await ctx.reply('Pong!');
 });
 
 

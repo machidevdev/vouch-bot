@@ -1,0 +1,39 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - production # Trigger on push to the 'production' branch
+
+jobs:
+  deploy:
+    name: Apply Migrations to Production Database
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Install Node.js (adjust Node version to your project)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.5.0'
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: npm install
+
+      # Step 4: Run Prisma Migrations
+      - name: Run Prisma Migrations on Production
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+
+      # Step 5: Verify Database State
+      - name: Verify Prisma Schema
+        run: npx prisma db pull

@@ -1,22 +1,39 @@
 import { Context, deunionize } from 'telegraf';
+import { CallbackQuery } from 'telegraf/types';
 
 export function loggerMiddleware<T extends Context>(ctx: T, next: () => Promise<void>) {
   const start = new Date();
   const message = deunionize(ctx.message);
+  const messageText = message?.text;
+  const callbackQuery = ctx.callbackQuery as CallbackQuery.DataQuery;
+
+  // Log vouch commands and deletion messages
+  if (messageText && (messageText.startsWith('/vouch') || /^[xX]$/.test(messageText))) {
     const messageInfo = {
-        timestamp: start.toISOString(),
-        updateType: ctx.updateType,
-        messageType: ctx.updateType,
-        from: ctx.from?.username || 'unknown',
-        content: message?.text || 'non-text content',
-        chatId: ctx.chat?.id.toString()
+      timestamp: start.toISOString(),
+      type: messageText.startsWith('/vouch') ? 'vouch' : 'delete',
+      from: ctx.from?.username || 'unknown',
+      content: messageText,
+      chatId: ctx.chat?.id.toString()
     };
 
-    console.log('Incoming message:', messageInfo);
+    console.log('Action logged:', messageInfo);
+  }
+  
+  // Log vote actions (thumbs up/down)
+  if (callbackQuery?.data?.startsWith('vote_')) {
+    const voteInfo = {
+      timestamp: start.toISOString(),
+      type: 'vote',
+      action: callbackQuery.data === 'vote_up' ? 'upvote' : 'downvote',
+      from: ctx.from?.username || 'unknown',
+      messageId: callbackQuery.message?.message_id,
+      chatId: callbackQuery.message?.chat.id.toString()
+    };
 
-    // Call next middleware and log processing time
-    return next().then(() => {
-        const ms = new Date().getTime() - start.getTime();
-        console.log('Response time:', `${ms}ms`);
-    });
+    console.log('Vote logged:', voteInfo);
+  }
+
+  // Call next middleware
+  return next();
 } 
