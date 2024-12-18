@@ -1,14 +1,8 @@
 import { Context } from 'telegraf';
 import { MyContext } from '../types';
+import { config } from '../config/env';
 
 export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<void>) => {
-  const allowedGroupId = process.env.ALLOWED_GROUP_ID;
-  
-  if (!allowedGroupId) {
-    console.warn('ALLOWED_GROUP_ID not set in environment variables');
-    return next();
-  }
-
   // Get the chat ID from the context
   const chatId = ctx.chat?.id.toString();
 
@@ -18,7 +12,7 @@ export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<v
   }
 
   // Check if the message is from the allowed group
-  if (chatId !== allowedGroupId) {
+  if (chatId !== config.allowedGroupId) {
     console.log(`Unauthorized access attempt from chat ID: ${chatId}`);
     return;
   }

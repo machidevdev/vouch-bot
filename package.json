@@ -7,7 +7,11 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/index.ts",
     "build": "tsc",
-    "dev": "ts-node-dev --respawn src/index.ts",
+    "start:staging": "APP_ENV=staging ts-node --watch src/index.ts",
+    "start:production": "APP_ENV=production ts-node --watch src/index.ts",
+    "start:local": "ts-node --watch src/index.ts",
+    "deploy:staging": "dotenv -e .env.staging -- npx prisma migrate deploy",
+    "pull:staging": "dotenv -e .env.staging -- npx prisma db pull",
     "sync": "ts-node sync.ts"
   },
   "author": "",

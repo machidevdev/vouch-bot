@@ -18,7 +18,7 @@ model Vote {
   status             String   @default("pending")
   messageId          BigInt
   chatId             BigInt
-  description        String? @db.Text
+  description        String?
 
   @@unique([messageId, chatId])
 }
