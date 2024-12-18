@@ -110,12 +110,12 @@ bot.command('vouch', async (ctx) => {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
     const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
+      caption: formatVoteMessage(username, 1, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ (0)', callback_data: 'vote_up' },
+            { text: '✅ (1)', callback_data: 'vote_up' },
             { text: '❌ (0)', callback_data: 'vote_down' }
           ]
         ]
@@ -127,7 +127,7 @@ bot.command('vouch', async (ctx) => {
         twitterUsername: username,
         messageId: BigInt(message.message_id),
         chatId: BigInt(ctx.chat.id),
-        upvoterUsernames: [],
+        upvoterUsernames: [ctx.from.username || ctx.from.id.toString()],
         downvoterUsernames: [],
         createdBy: ctx.from.username || ctx.from.id.toString(),
         status: 'pending',
