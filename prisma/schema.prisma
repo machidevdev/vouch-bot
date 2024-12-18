@@ -18,11 +18,7 @@ model Vote {
   status             String   @default("pending")
   messageId          BigInt
   chatId             BigInt
-<<<<<<< HEAD
-  description        String?
-=======
   description        String? @db.Text
->>>>>>> origin/main
 
   @@unique([messageId, chatId])
 }
