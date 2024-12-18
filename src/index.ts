@@ -1,15 +1,12 @@
-import { Context, Telegraf, } from 'telegraf';
-import * as dotenv from 'dotenv';
+import { Context, Telegraf } from 'telegraf';
 import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
-import { MyContext } from './types';
 import { PrismaClient } from '@prisma/client';
-// Load environment variables
-dotenv.config();
+import { config } from './config/env';
 
 // Initialize your bot
 const prisma = new PrismaClient();
-const bot = new Telegraf(process.env.BOT_TOKEN!);
+const bot = new Telegraf(config.botToken);
 
 // Register middlewares
 bot.use(loggerMiddleware);
@@ -47,6 +44,9 @@ Vouched by: @${createdBy}${descriptionText}
 }
 
 bot.command('vouch', async (ctx) => {
+  const userMessageId = ctx.message.message_id;
+  const userChatId = ctx.chat.id;
+  
   const messageText = ctx.message.text;
   let username: string | null = null;
   let description: string | null = null;
@@ -110,12 +110,12 @@ bot.command('vouch', async (ctx) => {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
     const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 0, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
+      caption: formatVoteMessage(username, 1, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ (0)', callback_data: 'vote_up' },
+            { text: '✅ (1)', callback_data: 'vote_up' },
             { text: '❌ (0)', callback_data: 'vote_down' }
           ]
         ]
@@ -127,7 +127,7 @@ bot.command('vouch', async (ctx) => {
         twitterUsername: username,
         messageId: BigInt(message.message_id),
         chatId: BigInt(ctx.chat.id),
-        upvoterUsernames: [],
+        upvoterUsernames: [ctx.from.username || ctx.from.id.toString()],
         downvoterUsernames: [],
         createdBy: ctx.from.username || ctx.from.id.toString(),
         status: 'pending',
@@ -139,6 +139,8 @@ bot.command('vouch', async (ctx) => {
     console.error('Error:', error);
     await ctx.reply('Sorry, something went wrong.');
   }
+  //delete the users message and leave only the vouch
+  await ctx.telegram.deleteMessage(userChatId, userMessageId);
 });
 
 bot.action(/vote_(up|down)/, async (ctx) => {
