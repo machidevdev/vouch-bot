@@ -4,3 +4,4 @@ node_modules
 sync.ts
 .env.staging
 .env.production
+.env.local

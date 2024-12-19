@@ -3,18 +3,25 @@ import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
 import { PrismaClient } from '@prisma/client';
 import { config } from './config/env';
+import { vouchCommand } from './commands/vouch';
 
 // Initialize your bot
 const prisma = new PrismaClient();
-const bot = new Telegraf(config.botToken);
+export const bot = new Telegraf(config.botToken);
+
+
+bot.use(vouchCommand)
+
+
 
 // Register middlewares
 bot.use(loggerMiddleware);
 bot.use(authMiddleware());
 
+
 // Command handlers
 bot.command('start', async (ctx) => {
-  await ctx.reply('Welcome! Bot is running.');
+  console.log('bot started')
 });
 
 // Add this function to format vote messages
@@ -43,7 +50,10 @@ Vouched by: @${createdBy}${descriptionText}
 ❌: <b>${downvotes}</b>${statusMessage}`;
 }
 
-bot.command('vouch', async (ctx) => {
+bot.command('vouchs', async (ctx) => {
+  
+
+
   const userMessageId = ctx.message.message_id;
   const userChatId = ctx.chat.id;
   
@@ -331,3 +341,4 @@ bot.launch()
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM')); 
+
