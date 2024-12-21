@@ -45,10 +45,14 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
   const messageId = ctx.callbackQuery.message.message_id;
   const chatId = ctx.callbackQuery.message.chat.id;
   const voterUsername = ctx.from.username!;
-
   const isUpvote = ctx.match[1] === 'up';
 
   try {
+    // Get current settings first
+    const settings = await prisma.settings.findFirst({
+      orderBy: { updatedAt: 'desc' }
+    }) || { requiredUpvotes: 15, requiredDownvotes: 3 };
+
     const vote = await prisma.vote.findUnique({
       where: {
         messageId_chatId: {
@@ -63,49 +67,76 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
       return;
     }
 
-    // Check if user has already voted
+    // Calculate new voter lists
     const hasUpvoted = vote.upvoterUsernames.includes(voterUsername);
     const hasDownvoted = vote.downvoterUsernames.includes(voterUsername);
 
-    // Handle vote toggle and changes
-    let updateData;
-    if (isUpvote && hasUpvoted) {
-      // Remove upvote
-      updateData = {
-        upvoterUsernames: vote.upvoterUsernames.filter(username => username !== voterUsername)
-      };
-      await ctx.answerCbQuery('Upvote removed!');
-    } else if (!isUpvote && hasDownvoted) {
-      // Remove downvote
-      updateData = {
-        downvoterUsernames: vote.downvoterUsernames.filter(username => username !== voterUsername)
-      };
-      await ctx.answerCbQuery('Downvote removed!');
+    let newUpvoters = [...vote.upvoterUsernames];
+    let newDownvoters = [...vote.downvoterUsernames];
+
+    if (isUpvote) {
+      if (hasUpvoted) {
+        newUpvoters = newUpvoters.filter(u => u !== voterUsername);
+        await ctx.answerCbQuery('Upvote removed!');
+      } else {
+        newUpvoters.push(voterUsername);
+        newDownvoters = newDownvoters.filter(u => u !== voterUsername);
+        await ctx.answerCbQuery(hasDownvoted ? 'Vote changed!' : 'Vote recorded!');
+      }
     } else {
-      // Add new vote and remove opposite if exists
-      updateData = isUpvote
-        ? {
-            upvoterUsernames: [...vote.upvoterUsernames, voterUsername],
-            downvoterUsernames: vote.downvoterUsernames.filter(username => username !== voterUsername)
-          }
-        : {
-            downvoterUsernames: [...vote.downvoterUsernames, voterUsername],
-            upvoterUsernames: vote.upvoterUsernames.filter(username => username !== voterUsername)
-          };
-      await ctx.answerCbQuery(hasUpvoted || hasDownvoted ? 'Vote changed!' : 'Vote recorded!');
+      if (hasDownvoted) {
+        newDownvoters = newDownvoters.filter(u => u !== voterUsername);
+        await ctx.answerCbQuery('Downvote removed!');
+      } else {
+        newDownvoters.push(voterUsername);
+        newUpvoters = newUpvoters.filter(u => u !== voterUsername);
+        await ctx.answerCbQuery(hasUpvoted ? 'Vote changed!' : 'Vote recorded!');
+      }
     }
 
-    await prisma.vote.update({
+    // Determine new status based on vote counts and settings
+    let newStatus = 'pending';
+    if (newUpvoters.length >= settings.requiredUpvotes) {
+      newStatus = 'approved';
+    } else if (newDownvoters.length >= settings.requiredDownvotes) {
+      newStatus = 'rejected';
+    }
+
+    // Update database with new votes and status
+    const updatedVote = await prisma.vote.update({
       where: { id: vote.id },
-      data: updateData
+      data: {
+        upvoterUsernames: newUpvoters,
+        downvoterUsernames: newDownvoters,
+        status: newStatus
+      }
     });
 
-    // Update message with new vote counts
-    await updateVoteMessage(ctx, vote.id);
+    // Update message with new vote counts and status
+    await ctx.editMessageCaption(
+      formatVoteMessage(
+        updatedVote.twitterUsername,
+        newUpvoters.length,
+        newDownvoters.length,
+        updatedVote.createdBy,
+        newStatus,
+        updatedVote.description ?? ''
+      ),
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: `✅ (${newUpvoters.length})`, callback_data: '/vote_up' },
+              { text: `❌ (${newDownvoters.length})`, callback_data: '/vote_down' }
+            ]
+          ]
+        }
+      }
+    );
 
   } catch (error) {
     console.error('Error:', error);
     await ctx.answerCbQuery('Error recording vote');
   }
- 
 });

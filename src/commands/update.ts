@@ -1,9 +1,8 @@
-import { Composer, Context, deunionize } from "telegraf";
+import { adminComposer } from "../composers/adminComposer";
+import { Context, deunionize } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
 import { Queue } from "../queue";
-
-export const adminComposer = new Composer();
 
 // Create a dedicated queue for update operations
 const updateQueue = new Queue();
@@ -23,7 +22,7 @@ async function sendTemporaryMessage(ctx: Context, text: string, deleteAfter: num
   return message;
 }
 
-const updateCommand = adminComposer.command('update', async (ctx) => {
+adminComposer.command('update', async (ctx) => {
   const statusMessages: number[] = [];  // Track message IDs
   const chat = deunionize(ctx.chat);
   if (!chat) return;
@@ -61,6 +60,14 @@ const updateCommand = adminComposer.command('update', async (ctx) => {
 
   updateQueue.add(async () => {
     try {
+      // Update settings first
+      await prisma.settings.create({
+        data: {
+          requiredUpvotes: upvotes,
+          requiredDownvotes: downvotes
+        }
+      });
+
       const dateFilter = new Date();
       dateFilter.setDate(dateFilter.getDate() - days);
 
