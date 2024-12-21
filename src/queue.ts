@@ -1,64 +1,35 @@
-interface QueueItem {
-  type: 'vote' | 'vouch' | 'other';
-  command: () => Promise<void>;
-  priority: number;
-}
-
-export class CommandQueue {
-  private queue: QueueItem[] = [];
+export class Queue {
+  private queue: (() => Promise<void>)[] = [];
   private isProcessing: boolean = false;
-  private readonly RATE_LIMIT_DELAY = 1000; // 1 second between messages
 
-  constructor() {
-    // Priority levels:
-    // vote/vouch: 1 (highest)
-    // other commands: 0 (lowest)
-  }
-
-  add(type: QueueItem['type'], command: () => Promise<void>) {
-    const priority = type === 'other' ? 0 : 1;
-    this.queue.push({ type, command, priority });
-    
-    // Sort queue by priority (highest first)
-    this.queue.sort((a, b) => b.priority - a.priority);
-
-    // Start processing if not already running
+  add(task: () => Promise<void>) {
+    this.queue.push(task);
     if (!this.isProcessing) {
       this.process();
     }
   }
 
   private async process() {
-    if (this.isProcessing || this.queue.length === 0) {
-      return;
-    }
-
+    if (this.isProcessing) return;
     this.isProcessing = true;
 
-    try {
-      while (this.queue.length > 0) {
-        const item = this.queue.shift();
-        if (!item) continue;
-
+    while (this.queue.length > 0) {
+      const task = this.queue.shift();
+      if (task) {
         try {
-          await item.command();
+          await task();
         } catch (error) {
-          console.error(`Error processing ${item.type} command:`, error);
+          console.error('Error processing task:', error);
         }
-
-        // Respect rate limit
-        await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
       }
-    } finally {
-      this.isProcessing = false;
     }
+
+    this.isProcessing = false;
   }
 
-  // Helper method to check queue status
-  getQueueStatus() {
+  getStatus() {
     return {
-      totalItems: this.queue.length,
-      highPriorityItems: this.queue.filter(item => item.priority === 1).length,
+      pendingTasks: this.queue.length,
       isProcessing: this.isProcessing
     };
   }

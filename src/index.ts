@@ -1,4 +1,4 @@
-import { Context, Telegraf } from 'telegraf';
+import { Composer, Context, Telegraf } from 'telegraf';
 import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
 import { config } from './config/env';
@@ -7,24 +7,25 @@ import { removeCommand } from './commands/remove';
 import { voteCommand } from './commands/vote';
 import { helpCommand } from './commands/help';
 import { startCommand } from './commands/start';
+import { adminComposer } from './commands/update';
 
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
+bot.use(Composer.acl([748045538, 6179266599, 6073481452], adminComposer));
 
+// Register regular commands in order of specificity
+bot.command('vouch', vouchCommand);  // Register specific commands first
+bot.command('help', helpCommand);
 
-bot.use(startCommand)
-bot.use(vouchCommand)
-bot.use(removeCommand)
-bot.use(voteCommand)
-bot.use(helpCommand)
+bot.command('start', startCommand);  // Register more general commands last
 
+// Register action handlers (for inline buttons)
+bot.action(/^\/vote_(up|down)$/, voteCommand);
 
 
 // Register middlewares
 bot.use(loggerMiddleware);
 bot.use(authMiddleware());
-
-
 
 // Start bot
 bot.launch()

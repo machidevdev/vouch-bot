@@ -26,8 +26,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: `✅ (${vote.upvoterUsernames.length})`, callback_data: 'vote_up' },
-            { text: `❌ (${vote.downvoterUsernames.length})`, callback_data: 'vote_down' }
+            { text: `✅ (${vote.upvoterUsernames.length})`, callback_data: '/vote_up' },
+            { text: `❌ (${vote.downvoterUsernames.length})`, callback_data: '/vote_down' }
           ]
         ]
       }
@@ -37,7 +37,8 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
 
 
 
-export const voteCommand = Composer.action('/vote_(up|down)/', async (ctx) => {
+export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => {
+  console.log('voteCommand', ctx.callbackQuery);
   
   if (!ctx.callbackQuery.message) return;
 

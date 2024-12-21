@@ -6,13 +6,13 @@ export const formatVoteMessage = (twitterUsername: string, upvotes: number, down
   
   switch (status) {
     case 'approved':
-      statusMessage = '\n\n✅ <b>Status: ACCEPTED</b>\nThis user has been vouched for by the community.';
+      statusMessage = '\n\n<b>Status: ✅</b>\n';
       break;
     case 'rejected':
-      statusMessage = '\n\n❌ <b>Status: REJECTED</b>\nThis user has been rejected by the community.';
+      statusMessage = '\n\n<b>Status: ❌</b>';
       break;
     default:
-      statusMessage = `\n\n⏳ <b>Status: PENDING</b>`;
+      statusMessage = `\n\n<b>Status: ⏳</b>`;
   }
 
   const descriptionText = description ? `\n\n<b>Description:</b>\n${description}` : '';

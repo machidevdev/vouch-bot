@@ -75,8 +75,8 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ (1)', callback_data: 'vote_up' },
-            { text: '❌ (0)', callback_data: 'vote_down' }
+            { text: `✅ (1)`, callback_data: '/vote_up' },
+            { text: `❌ (0)`, callback_data: '/vote_down' }
           ]
         ]
       }
