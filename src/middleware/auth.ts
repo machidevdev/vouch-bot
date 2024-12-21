@@ -3,6 +3,11 @@ import { MyContext } from '../types';
 import { config } from '../config/env';
 
 export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<void>) => {
+
+  if(config.isDevelopment){
+    return next();
+  }
+
   // Get the chat ID from the context
   const chatId = ctx.chat?.id.toString();
 

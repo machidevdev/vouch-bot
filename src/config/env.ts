@@ -11,18 +11,29 @@ if (environment !== 'production') {
 }
 
 // Validate required environment variables
-const requiredEnvVars = ['BOT_TOKEN', 'DATABASE_URL', 'ALLOWED_GROUP_ID'] as const;
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+const requiredEnvVars = ['BOT_TOKEN', 'DATABASE_URL'] as const;
+const conditionalEnvVars = ['ALLOWED_GROUP_ID'] as const;
 
-if (missingEnvVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+const productionEnvVars = ['BOT_TOKEN', 'DATABASE_URL', 'ALLOWED_GROUP_ID'] as const;
+
+const localMissingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+const productionMissingEnvVars = productionEnvVars.filter(envVar => !process.env[envVar]);
+
+if (environment === 'production' && localMissingEnvVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${localMissingEnvVars.join(', ')}`);
 }
+
+if (environment === 'production' && productionMissingEnvVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${productionMissingEnvVars.join(', ')}`);
+}
+
 
 export const config = {
   environment,
   botToken: process.env.BOT_TOKEN!,
   databaseUrl: process.env.DATABASE_URL!,
-  allowedGroupId: process.env.ALLOWED_GROUP_ID!,
+  allowedGroupId: environment === 'local' ? 'local' : process.env.ALLOWED_GROUP_ID!,
   isProduction: environment === 'production',
   isStaging: environment === 'staging',
   isDevelopment: environment === 'local',
