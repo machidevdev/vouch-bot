@@ -13,7 +13,7 @@ import './commands/settings';
 
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
-bot.use(Composer.acl([748045538, 6179266599, 6073481452], adminComposer));
+bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
 
 // Register regular commands in order of specificity
 bot.command('vouch', vouchCommand);  // Register specific commands first
