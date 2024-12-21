@@ -7,7 +7,9 @@ import { removeCommand } from './commands/remove';
 import { voteCommand } from './commands/vote';
 import { helpCommand } from './commands/help';
 import { startCommand } from './commands/start';
-import { adminComposer } from './commands/update';
+import { adminComposer } from './composers/adminComposer';
+import './commands/update';
+import './commands/settings';
 
 // Initialize your bot
 const bot = new Telegraf(config.botToken);

@@ -22,3 +22,10 @@ model Vote {
 
   @@unique([messageId, chatId])
 }
+
+model Settings {
+  id              Int      @id @default(autoincrement())
+  requiredUpvotes Int      @default(15)
+  requiredDownvotes Int    @default(3)
+  updatedAt       DateTime @updatedAt
+}
