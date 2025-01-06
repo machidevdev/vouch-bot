@@ -8,6 +8,7 @@ export const removeCommand = Composer.on(message('text'), async (ctx) => {
   }
 
   const repliedMessage = ctx.message.reply_to_message;
+  console.log('removing message', repliedMessage);
   try {
     // Find the vote associated with this message
     const vote = await prisma.vote.findUnique({
