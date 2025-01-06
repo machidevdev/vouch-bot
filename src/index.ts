@@ -24,6 +24,8 @@ bot.command('start', startCommand);  // Register more general commands last
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
 
+// Add the remove command handler
+bot.use(removeCommand);
 
 // Register middlewares
 bot.use(loggerMiddleware);
