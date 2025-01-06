@@ -19,17 +19,17 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
 
   // Check for Twitter URL
-  const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s]+)/;
+  const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s\?]+)/;
   const urlMatch = parts[1].match(twitterUrlRegex);
   
   if (urlMatch) {
-    username = urlMatch[1];
+    username = urlMatch[1].split('?')[0];
     description = parts.slice(2).join(' ') || null;
   } else {
     // Check for username format (with @)
     const usernameMatch = parts[1].match(/@?(\w+)/);
     if (usernameMatch) {
-      username = usernameMatch[1];
+      username = usernameMatch[1].split('?')[0];
       description = parts.slice(2).join(' ') || null;
     }
   }
