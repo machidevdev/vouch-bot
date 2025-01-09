@@ -10,6 +10,7 @@ import { startCommand } from './commands/start';
 import { adminComposer } from './composers/adminComposer';
 import './commands/update';
 import './commands/settings';
+import { spotifyCommand } from './commands/spotify';
 
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
@@ -18,18 +19,16 @@ bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminCompos
 // Register regular commands in order of specificity
 bot.command('vouch', vouchCommand);  // Register specific commands first
 bot.command('help', helpCommand);
-
-bot.command('start', startCommand);  // Register more general commands last
+bot.command('start', startCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
 
 // Add the remove command handler
-bot.use(removeCommand);
+bot.use(removeCommand, spotifyCommand, loggerMiddleware, authMiddleware());
 
-// Register middlewares
-bot.use(loggerMiddleware);
-bot.use(authMiddleware());
+
+
 
 // Start bot
 bot.launch()
