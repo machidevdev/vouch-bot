@@ -2,10 +2,13 @@ import { Composer } from "telegraf";
 import { message } from "telegraf/filters";
 import { prisma } from "../utils";
 
-export const removeCommand = Composer.on(message('text'), async (ctx) => {
+export const removeCommand = Composer.on(message('text'), async (ctx, next) => {
   if (!/^[xX]$/.test(ctx.message.text) || !ctx.message.reply_to_message) {
+    await next();
     return;
   }
+
+
 
   const repliedMessage = ctx.message.reply_to_message;
   console.log('removing message', repliedMessage);
@@ -52,4 +55,5 @@ export const removeCommand = Composer.on(message('text'), async (ctx) => {
   } catch (error) {
     console.error('Error handling vote deletion:', error);
   }
+  await next();
 });
