@@ -11,7 +11,7 @@ import { adminComposer } from './composers/adminComposer';
 import './commands/update';
 import './commands/settings';
 import { spotifyCommand } from './commands/spotify';
-
+import { topgolfCommand } from './commands/topgolf';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
@@ -25,7 +25,7 @@ bot.command('start', startCommand);
 bot.action(/^\/vote_(up|down)$/, voteCommand);
 
 // Add the remove command handler
-bot.use(removeCommand, spotifyCommand, loggerMiddleware, authMiddleware());
+bot.use(removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware());
 
 
 
