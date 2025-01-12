@@ -5,10 +5,10 @@ import sharp from 'sharp';
 const { getData, getPreview, getTracks, getDetails } =
   require('spotify-url-info')(fetch)
 
-export const spotifyCommand = Composer.on(message('text'), async (ctx) => {
+export const spotifyCommand = Composer.on(message('text'), async (ctx, next) => {
   const text = ctx.message.text;
   
-  if (!text.includes('spotify.com/track/')) return;
+  if (!text.includes('spotify.com/track/')) return next();
 
   try {
     const data = await getPreview(text);
@@ -50,4 +50,5 @@ export const spotifyCommand = Composer.on(message('text'), async (ctx) => {
   } catch (error) {
     console.error('Error processing Spotify link:', error);
   }
+  await next();
 });
