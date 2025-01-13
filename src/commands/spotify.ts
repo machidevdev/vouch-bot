@@ -11,7 +11,15 @@ export const spotifyCommand = Composer.on(message('text'), async (ctx, next) => 
   if (!text.includes('spotify.com/track/')) return next();
 
   try {
-    const data = await getPreview(text);
+    // Extract Spotify URL first
+    const spotifyUrlRegex = /(https?:\/\/[^\s]+spotify\.com\/track\/[^\s]+)/;
+    const match = text.match(spotifyUrlRegex);
+    if (!match) return next();
+
+    const spotifyUrl = match[0];
+    const additionalText = text.replace(spotifyUrl, '').trim();
+    
+    const data = await getPreview(spotifyUrl);  // Pass only the URL
     if (!data) return;
     
     await ctx.deleteMessage(ctx.message.message_id);
@@ -28,12 +36,15 @@ export const spotifyCommand = Composer.on(message('text'), async (ctx, next) => 
     const audioResponse = await fetch(data.audio);
     const audioBuffer = await audioResponse.arrayBuffer();
     
+    const caption = `🎵 <b>${data.title}</b>\n` +
+                   `💿 <b>${data.artist}</b>\n` +
+                   `📱 Shared by: @${ctx.from.username || ctx.from.id}` +
+                   (additionalText ? `\n\n💭 ${additionalText}` : '');
+    
     await ctx.sendAudio(
       { source: Buffer.from(audioBuffer), filename: 'audio.mp3' },
       {
-        caption: `🎵 <b>${data.title}</b>\n` +
-                `💿 <b>${data.artist}</b>\n` +
-                `📱 Shared by: @${ctx.from.username || ctx.from.id}`,
+        caption: caption,
         parse_mode: 'HTML',
         title: data.title,
         performer: data.artist,
