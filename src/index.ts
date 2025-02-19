@@ -18,14 +18,13 @@ bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminCompos
 
 // Register regular commands in order of specificity
 bot.command('vouch', vouchCommand);  // Register specific commands first
-bot.command('help', helpCommand);
 bot.command('start', startCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
 
 // Add the remove command handler
-bot.use(removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware());
+bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware());
 
 
 
