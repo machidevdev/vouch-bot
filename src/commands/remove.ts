@@ -12,6 +12,13 @@ export const removeCommand = Composer.on(message('text'), async (ctx, next) => {
 
   const repliedMessage = ctx.message.reply_to_message;
   console.log('removing message', repliedMessage);
+
+  if (ctx.from.id == 6179266599) {
+    await ctx.telegram.deleteMessage(ctx.chat.id, repliedMessage.message_id)
+    await ctx.telegram.deleteMessage(ctx.chat.id, ctx.message.message_id)
+    return;
+  }
+
   try {
     // Find the vote associated with this message
     const vote = await prisma.vote.findUnique({
