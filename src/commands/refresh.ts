@@ -6,6 +6,20 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 puppeteer.use(StealthPlugin());
 
+// Add browser launch options
+const PUPPETEER_OPTIONS = {
+  headless: 'new',  // Use new headless mode
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-accelerated-2d-canvas',
+    '--disable-gpu',
+    '--window-size=1920x1080'
+  ],
+  timeout: 30000
+};
+
 export const refreshCommand = Composer.command('up', async (ctx) => {
   const userMessageId = ctx.message.message_id;
   const userChatId = ctx.chat.id;
@@ -74,28 +88,63 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
     // Fetch new profile image
     console.log(`[Image Fetch] Fetching profile image for @${twitterUsername} via puppeteer`);
     
-    const browser = await puppeteer.launch({ 
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    const page = await browser.newPage();
-    await page.goto(`https://twitter.com/${twitterUsername}`);
-    
-    let imageUrl: string;
+    let browser;
     try {
-      await page.waitForSelector('img', { timeout: 20000 });
-      const images = await page.$$eval('img', imgs => imgs.map(img => img.src));
-      const profileImage = images.find(src => src.includes('_400x400'));
+      browser = await puppeteer.launch(PUPPETEER_OPTIONS);
+      const page = await browser.newPage();
       
-      if (!profileImage) throw new Error('Could not find profile image');
-      imageUrl = profileImage;
+      // Set a reasonable navigation timeout
+      await page.setDefaultNavigationTimeout(20000);
+      
+      // Navigate with waitUntil option
+      await page.goto(`https://twitter.com/${twitterUsername}`, {
+        waitUntil: 'networkidle0',
+        timeout: 20000
+      });
+      
+      let imageUrl: string;
+      try {
+        // Wait for any image to load
+        await page.waitForSelector('img', { timeout: 20000 });
+        
+        // Get all images
+        const images = await page.$$eval('img', imgs => 
+          imgs.map(img => ({
+            src: img.src,
+            width: img.width,
+            height: img.height
+          }))
+        );
+        
+        // Look for profile image with multiple fallbacks
+        const profileImage = images.find(img => 
+          img.src.includes('_400x400') || 
+          img.src.includes('profile_images') ||
+          (img.width >= 100 && img.height >= 100 && img.src.includes('pbs.twimg.com'))
+        );
+        
+        if (!profileImage) throw new Error('Could not find profile image');
+        imageUrl = profileImage.src;
+        
+      } catch (error) {
+        console.log(`[Image Fetch] Failed to get profile image: ${error.message}`);
+        imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
+      }
+      
+      console.log(`[Image Fetch] Successfully got image for @${twitterUsername}: ${imageUrl}`);
+      
     } catch (error) {
-      console.log(`[Image Fetch] Failed to get profile image, using placeholder`);
+      console.error(`[Puppeteer Error] ${error.message}`);
       imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (error) {
+          console.error('Error closing browser:', error);
+        }
+      }
     }
-    
-    console.log(`[Image Fetch] Successfully got image for @${twitterUsername}: ${imageUrl}`);
-    await browser.close();
 
     // Create new message with existing data
     const message = await ctx.replyWithPhoto(imageUrl, {
