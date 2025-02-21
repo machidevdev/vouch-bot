@@ -1,8 +1,10 @@
 import { Composer } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-
+puppeteer.use(StealthPlugin());
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -52,13 +54,17 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
     });
 
     if (existingVote) {
-      // Forward existing vote message
-      ctx.sendMessage('Vouch already exists', {
-        reply_parameters: {
-          message_id: Number(existingVote.messageId),
-          chat_id: Number(existingVote.chatId)
-        }
-      })
+      try {
+        await ctx.sendMessage('Vouch already exists', {
+          reply_parameters: {
+            message_id: Number(existingVote.messageId),
+            chat_id: Number(existingVote.chatId)
+          }
+        });
+      } catch (error) {
+        // If we can't reply to the original message, just send a new message
+        await ctx.reply(`A vouch for @${username} already exists, but I couldn't find the original message.`);
+      }
       return;
     }
   } catch (error) {
@@ -67,15 +73,33 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
   
   try {
-    const profileImageUrl = `https://unavatar.io/twitter/${username}`;
+    console.log(`[Image Fetch] Fetching profile image for @${username} via puppeteer`);
     
-    // Check if URL is accessible before sending
-    const imageResponse = await fetch(profileImageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch profile image: ${imageResponse.status}`);
+    const browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    });
+    const page = await browser.newPage();
+    await page.goto(`https://twitter.com/${username}`);
+    
+    // Wait for profile image and get its URL
+    let imageUrl: string;
+    try {
+      await page.waitForSelector('img', { timeout: 60000 });
+      const images = await page.$$eval('img', imgs => imgs.map(img => img.src));
+      const profileImage = images.find(src => src.includes('_400x400'));
+      
+      if (!profileImage) throw new Error('Could not find profile image');
+      imageUrl = profileImage;
+    } catch (error) {
+      console.log(`[Image Fetch] Failed to get profile image, using placeholder`);
+      imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
     }
-
-    const message = await ctx.replyWithPhoto(profileImageUrl.trim(), {
+    
+    console.log(`[Image Fetch] Successfully got image for @${username}: ${imageUrl}`);
+    await browser.close();
+    
+    const message = await ctx.replyWithPhoto(imageUrl, {
       caption: formatVoteMessage(
         username.trim(), 
         1, 
@@ -86,12 +110,10 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
       ),
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: `✅ (1)`, callback_data: '/vote_up' },
-            { text: `❌ (0)`, callback_data: '/vote_down' }
-          ]
-        ]
+        inline_keyboard: [[
+          { text: `✅ (1)`, callback_data: '/vote_up' },
+          { text: `❌ (0)`, callback_data: '/vote_down' }
+        ]]
       }
     });
 
@@ -110,7 +132,11 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
 
   } catch (error) {
     console.error('Error creating vouch:', error);
-    await ctx.reply('Sorry, something went wrong. Please try again in a bit.');
+
+    const msg = await ctx.reply('Sorry, something went wrong. Please try again in a bit.');
+    setTimeout(async () => {
+      await ctx.telegram.deleteMessage(userChatId, msg.message_id);
+    }, 5000);
   }
   
   // Delete the user's message and leave only the vouch
