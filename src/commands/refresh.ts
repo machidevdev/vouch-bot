@@ -8,7 +8,7 @@ puppeteer.use(StealthPlugin());
 
 // Add browser launch options
 const PUPPETEER_OPTIONS = {
-  headless: 'new',  // Use new headless mode
+  headless: true,  // Changed from 'new' to true
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -89,6 +89,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
     console.log(`[Image Fetch] Fetching profile image for @${twitterUsername} via puppeteer`);
     
     let browser;
+    let imageUrl: string;
     try {
       browser = await puppeteer.launch(PUPPETEER_OPTIONS);
       const page = await browser.newPage();
@@ -102,7 +103,6 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         timeout: 20000
       });
       
-      let imageUrl: string;
       try {
         // Wait for any image to load
         await page.waitForSelector('img', { timeout: 20000 });
@@ -118,22 +118,21 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         
         // Look for profile image with multiple fallbacks
         const profileImage = images.find(img => 
-          img.src.includes('_400x400') || 
-          img.src.includes('profile_images') ||
-          (img.width >= 100 && img.height >= 100 && img.src.includes('pbs.twimg.com'))
+          img.src.includes('_400x400')
+         
         );
         
         if (!profileImage) throw new Error('Could not find profile image');
         imageUrl = profileImage.src;
         
-      } catch (error) {
+      } catch (error: any) {
         console.log(`[Image Fetch] Failed to get profile image: ${error.message}`);
         imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
       }
       
       console.log(`[Image Fetch] Successfully got image for @${twitterUsername}: ${imageUrl}`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[Puppeteer Error] ${error.message}`);
       imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
     } finally {
