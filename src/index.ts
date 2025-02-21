@@ -18,7 +18,11 @@ bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminCompos
 
 
 bot.catch((err, ctx) => {
-  ctx.telegram.sendMessage(6179266599, `Error: ${err}`);
+  try{
+    ctx.telegram.sendMessage(6179266599, `Error: ${err}`);
+  }catch(e){
+    console.error('Failed to send error message:', e);
+  }
 });
 
 // Register regular commands in order of specificity
