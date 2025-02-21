@@ -12,13 +12,24 @@ import './commands/update';
 import './commands/settings';
 import { spotifyCommand } from './commands/spotify';
 import { topgolfCommand } from './commands/topgolf';
+import { refreshCommand } from './commands/refresh';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
 
+
+bot.catch((err, ctx) => {
+  try{
+    ctx.telegram.sendMessage(6179266599, `Error: ${err}`);
+  }catch(e){
+    console.error('Failed to send error message:', e);
+  }
+});
+
 // Register regular commands in order of specificity
 bot.command('vouch', vouchCommand);  // Register specific commands first
 bot.command('start', startCommand);
+bot.command('up', refreshCommand);  // Add the refresh command
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);

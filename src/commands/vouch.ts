@@ -1,8 +1,10 @@
 import { Composer } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-
+puppeteer.use(StealthPlugin());
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -21,7 +23,7 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   // Check for Twitter URL
   const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s\?]+)/;
   const urlMatch = parts[1].match(twitterUrlRegex);
-  
+  console.log("Fetching username from URL:", urlMatch);
   if (urlMatch) {
     username = urlMatch[1].split('?')[0];
     description = parts.slice(2).join(' ') || null;
@@ -52,13 +54,17 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
     });
 
     if (existingVote) {
-      // Forward existing vote message
-      ctx.sendMessage('Vouch already exists', {
-        reply_parameters: {
-          message_id: Number(existingVote.messageId),
-          chat_id: Number(existingVote.chatId)
-        }
-      })
+      try {
+        await ctx.sendMessage('Vouch already exists', {
+          reply_parameters: {
+            message_id: Number(existingVote.messageId),
+            chat_id: Number(existingVote.chatId)
+          }
+        });
+      } catch (error) {
+        // If we can't reply to the original message, just send a new message
+        await ctx.reply(`A vouch for @${username} already exists, but I couldn't find the original message.`);
+      }
       return;
     }
   } catch (error) {
@@ -67,39 +73,76 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
   
   try {
-    const profileImageUrl = `https://unavatar.io/twitter/${username}`;
+    console.log(`[Image Fetch] Fetching profile image for @${username} via puppeteer`);
     
-    const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 1, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
+    const browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    });
+    const page = await browser.newPage();
+    await page.goto(`https://twitter.com/${username}`);
+    
+    // Wait for profile image and get its URL
+    let imageUrl: string;
+    try {
+      await page.waitForSelector('img', { timeout: 60000 });
+      const images = await page.$$eval('img', imgs => imgs.map(img => img.src));
+      const profileImage = images.find(src => src.includes('_400x400'));
+      
+      if (!profileImage) throw new Error('Could not find profile image');
+      imageUrl = profileImage;
+    } catch (error) {
+      console.log(`[Image Fetch] Failed to get profile image, using placeholder`);
+      imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
+    }
+    
+    console.log(`[Image Fetch] Successfully got image for @${username}: ${imageUrl}`);
+    await browser.close();
+    
+    const message = await ctx.replyWithPhoto(imageUrl, {
+      caption: formatVoteMessage(
+        username.trim(), 
+        1, 
+        0, 
+        ctx.from.username || ctx.from.id.toString(), 
+        'pending', 
+        description?.trim() ?? ''
+      ),
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: `✅ (1)`, callback_data: '/vote_up' },
-            { text: `❌ (0)`, callback_data: '/vote_down' }
-          ]
-        ]
+        inline_keyboard: [[
+          { text: `✅ (1)`, callback_data: '/vote_up' },
+          { text: `❌ (0)`, callback_data: '/vote_down' }
+        ]]
       }
     });
 
     await prisma.vote.create({
       data: {
-        twitterUsername: username,
+        twitterUsername: username.trim(),
         messageId: BigInt(message.message_id),
         chatId: BigInt(ctx.chat.id),
         upvoterUsernames: [ctx.from.username || ctx.from.id.toString()],
         downvoterUsernames: [],
         createdBy: ctx.from.username || ctx.from.id.toString(),
         status: 'pending',
-        description: description
+        description: description?.trim()
       }
     });
 
   } catch (error) {
-    console.error('Error:', error);
-    await ctx.reply('Sorry, something went wrong.');
-  }
-  //delete the users message and leave only the vouch
-  await ctx.telegram.deleteMessage(userChatId, userMessageId);
+    console.error('Error creating vouch:', error);
 
+    const msg = await ctx.reply('Sorry, something went wrong. Please try again in a bit.');
+    setTimeout(async () => {
+      await ctx.telegram.deleteMessage(userChatId, msg.message_id);
+    }, 5000);
+  }
+  
+  // Delete the user's message and leave only the vouch
+  try {
+    await ctx.telegram.deleteMessage(userChatId, userMessageId);
+  } catch (error) {
+    console.error('Failed to delete user message:', error);
+  }
 });
