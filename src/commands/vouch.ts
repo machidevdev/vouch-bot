@@ -21,7 +21,7 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   // Check for Twitter URL
   const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s\?]+)/;
   const urlMatch = parts[1].match(twitterUrlRegex);
-  
+  console.log("Fetching username from URL:", urlMatch);
   if (urlMatch) {
     username = urlMatch[1].split('?')[0];
     description = parts.slice(2).join(' ') || null;
@@ -69,8 +69,21 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   try {
     const profileImageUrl = `https://unavatar.io/twitter/${username}`;
     
-    const message = await ctx.replyWithPhoto(profileImageUrl, {
-      caption: formatVoteMessage(username, 1, 0, ctx.from.username || ctx.from.id.toString(), 'pending', description ?? ''),
+    // Check if URL is accessible before sending
+    const imageResponse = await fetch(profileImageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch profile image: ${imageResponse.status}`);
+    }
+
+    const message = await ctx.replyWithPhoto(profileImageUrl.trim(), {
+      caption: formatVoteMessage(
+        username.trim(), 
+        1, 
+        0, 
+        ctx.from.username || ctx.from.id.toString(), 
+        'pending', 
+        description?.trim() ?? ''
+      ),
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -84,22 +97,26 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
 
     await prisma.vote.create({
       data: {
-        twitterUsername: username,
+        twitterUsername: username.trim(),
         messageId: BigInt(message.message_id),
         chatId: BigInt(ctx.chat.id),
         upvoterUsernames: [ctx.from.username || ctx.from.id.toString()],
         downvoterUsernames: [],
         createdBy: ctx.from.username || ctx.from.id.toString(),
         status: 'pending',
-        description: description
+        description: description?.trim()
       }
     });
 
   } catch (error) {
-    console.error('Error:', error);
-    await ctx.reply('Sorry, something went wrong.');
+    console.error('Error creating vouch:', error);
+    await ctx.reply('Sorry, something went wrong. Please try again in a bit.');
   }
-  //delete the users message and leave only the vouch
-  await ctx.telegram.deleteMessage(userChatId, userMessageId);
-
+  
+  // Delete the user's message and leave only the vouch
+  try {
+    await ctx.telegram.deleteMessage(userChatId, userMessageId);
+  } catch (error) {
+    console.error('Failed to delete user message:', error);
+  }
 });
