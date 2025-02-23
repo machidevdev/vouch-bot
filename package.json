@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.4",
+    "@types/node-fetch": "^2.6.12",
     "prisma": "^6.0.1",
     "ts-node": "^10.x.x",
     "ts-node-dev": "^2.x.x",

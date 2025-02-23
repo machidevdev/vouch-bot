@@ -1,24 +1,9 @@
 import { Composer } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fetch from 'node-fetch';
 
-puppeteer.use(StealthPlugin());
-
-// Add browser launch options
-const PUPPETEER_OPTIONS = {
-  headless: true,  // Changed from 'new' to true
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-accelerated-2d-canvas',
-    '--disable-gpu',
-    '--window-size=1920x1080'
-  ],
-  timeout: 30000
-};
+const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
 
 export const refreshCommand = Composer.command('up', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -85,64 +70,19 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
       console.error('Error deleting existing vote:', error);
     }
 
-    // Fetch new profile image
-    console.log(`[Image Fetch] Fetching profile image for @${twitterUsername} via puppeteer`);
-    
-    let browser;
+    // Fetch profile image
+    console.log(`[Image Fetch] Fetching profile image for @${twitterUsername}`);
     let imageUrl: string;
+    
     try {
-      browser = await puppeteer.launch(PUPPETEER_OPTIONS);
-      const page = await browser.newPage();
+      const response = await fetch(`https://unavatar.io/twitter/${twitterUsername}?json`);
+      const data = await response.json() as { url: string };
       
-      // Set a reasonable navigation timeout
-      await page.setDefaultNavigationTimeout(20000);
-      
-      // Navigate with waitUntil option
-      await page.goto(`https://twitter.com/${twitterUsername}`, {
-        waitUntil: 'networkidle0',
-        timeout: 20000
-      });
-      
-      try {
-        // Wait for any image to load
-        await page.waitForSelector('img', { timeout: 20000 });
-        
-        // Get all images
-        const images = await page.$$eval('img', imgs => 
-          imgs.map(img => ({
-            src: img.src,
-            width: img.width,
-            height: img.height
-          }))
-        );
-        
-        // Look for profile image with multiple fallbacks
-        const profileImage = images.find(img => 
-          img.src.includes('_400x400')
-         
-        );
-        
-        if (!profileImage) throw new Error('Could not find profile image');
-        imageUrl = profileImage.src;
-        
-      } catch (error: any) {
-        console.log(`[Image Fetch] Failed to get profile image: ${error.message}`);
-        imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
-      }
-      
-      console.log(`[Image Fetch] Successfully got image for @${twitterUsername}: ${imageUrl}`);
-      
-    } catch (error: any) {
-      console.error(`[Puppeteer Error] ${error.message}`);
-      imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (error) {
-          console.error('Error closing browser:', error);
-        }
-      }
+      imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
+      console.log(`[Image Fetch] Got image URL: ${imageUrl}`);
+    } catch (error) {
+      console.error(`[Image Fetch] Error: ${error}`);
+      imageUrl = FALLBACK_IMAGE;
     }
 
     // Create new message with existing data
@@ -151,7 +91,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         twitterUsername,
         upvoterUsernames.length,
         downvoterUsernames.length,
-        ctx.from.username || ctx.from.id.toString(),
+        existingVote.createdBy,
         status,
         description || ''
       ),
@@ -172,7 +112,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         chatId: BigInt(userChatId),
         upvoterUsernames,
         downvoterUsernames,
-        createdBy: ctx.from.username || ctx.from.id.toString(),
+        createdBy: existingVote.createdBy,
         status,
         description
       }

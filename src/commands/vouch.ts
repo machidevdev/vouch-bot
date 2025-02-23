@@ -1,10 +1,9 @@
 import { Composer } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fetch from 'node-fetch';
 
-puppeteer.use(StealthPlugin());
+const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -73,32 +72,20 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
   
   try {
-    console.log(`[Image Fetch] Fetching profile image for @${username} via puppeteer`);
+    console.log(`[Image Fetch] Fetching profile image for @${username}`);
     
-    const browser = await puppeteer.launch({ 
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    const page = await browser.newPage();
-    await page.goto(`https://twitter.com/${username}`);
-    
-    // Wait for profile image and get its URL
     let imageUrl: string;
     try {
-      await page.waitForSelector('img', { timeout: 60000 });
-      const images = await page.$$eval('img', imgs => imgs.map(img => img.src));
-      const profileImage = images.find(src => src.includes('_400x400'));
+      const response = await fetch(`https://unavatar.io/twitter/${username}?json`);
+      const data = await response.json() as { url: string };
       
-      if (!profileImage) throw new Error('Could not find profile image');
-      imageUrl = profileImage;
+      imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
+      console.log(`[Image Fetch] Got image URL: ${imageUrl}`);
     } catch (error) {
-      console.log(`[Image Fetch] Failed to get profile image, using placeholder`);
-      imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
+      console.error(`[Image Fetch] Error: ${error}`);
+      imageUrl = FALLBACK_IMAGE;
     }
-    
-    console.log(`[Image Fetch] Successfully got image for @${username}: ${imageUrl}`);
-    await browser.close();
-    
+
     const message = await ctx.replyWithPhoto(imageUrl, {
       caption: formatVoteMessage(
         username.trim(), 
