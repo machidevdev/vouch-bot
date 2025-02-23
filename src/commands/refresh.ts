@@ -1,10 +1,9 @@
 import { Composer } from "telegraf";
 import { prisma } from "../utils";
 import { formatVoteMessage } from "../utils";
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fetch from 'node-fetch';
 
-puppeteer.use(StealthPlugin());
+const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
 
 export const refreshCommand = Composer.command('up', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -71,31 +70,20 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
       console.error('Error deleting existing vote:', error);
     }
 
-    // Fetch new profile image
-    console.log(`[Image Fetch] Fetching profile image for @${twitterUsername} via puppeteer`);
-    
-    const browser = await puppeteer.launch({ 
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    const page = await browser.newPage();
-    await page.goto(`https://twitter.com/${twitterUsername}`);
-    
+    // Fetch profile image
+    console.log(`[Image Fetch] Fetching profile image for @${twitterUsername}`);
     let imageUrl: string;
-    try {
-      await page.waitForSelector('img', { timeout: 20000 });
-      const images = await page.$$eval('img', imgs => imgs.map(img => img.src));
-      const profileImage = images.find(src => src.includes('_400x400'));
-      
-      if (!profileImage) throw new Error('Could not find profile image');
-      imageUrl = profileImage;
-    } catch (error) {
-      console.log(`[Image Fetch] Failed to get profile image, using placeholder`);
-      imageUrl = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
-    }
     
-    console.log(`[Image Fetch] Successfully got image for @${twitterUsername}: ${imageUrl}`);
-    await browser.close();
+    try {
+      const response = await fetch(`https://unavatar.io/twitter/${twitterUsername}?json`);
+      const data = await response.json() as { url: string };
+      
+      imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
+      console.log(`[Image Fetch] Got image URL: ${imageUrl}`);
+    } catch (error) {
+      console.error(`[Image Fetch] Error: ${error}`);
+      imageUrl = FALLBACK_IMAGE;
+    }
 
     // Create new message with existing data
     const message = await ctx.replyWithPhoto(imageUrl, {
@@ -103,7 +91,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         twitterUsername,
         upvoterUsernames.length,
         downvoterUsernames.length,
-        ctx.from.username || ctx.from.id.toString(),
+        existingVote.createdBy,
         status,
         description || ''
       ),
@@ -124,7 +112,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         chatId: BigInt(userChatId),
         upvoterUsernames,
         downvoterUsernames,
-        createdBy: ctx.from.username || ctx.from.id.toString(),
+        createdBy: existingVote.createdBy,
         status,
         description
       }
