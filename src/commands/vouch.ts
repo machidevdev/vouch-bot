@@ -76,7 +76,9 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
     
     let imageUrl: string;
     try {
-      const response = await fetch(`https://unavatar.io/twitter/${username}?json`);
+      const response = await fetch(`https://unavatar.io/twitter/${username}?json`, {
+        timeout: 3000
+      });
       const data = await response.json() as { url: string };
       
       imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
