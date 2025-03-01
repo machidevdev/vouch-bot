@@ -148,7 +148,7 @@ adminComposer.command('update', async (ctx) => {
             errorCount++;
           }
 
-          if (updatedCount % 3 === 0) {
+          if (updatedCount % 5 === 0) {
             await ctx.telegram.editMessageText(
               ctx.chat.id,
               statusMessage.message_id,
@@ -157,7 +157,7 @@ adminComposer.command('update', async (ctx) => {
             );
           }
 
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise(resolve => setTimeout(resolve, 10000));
         } catch (error) {
           console.error(`Failed to process vote for ${vote.twitterUsername}:`, error);
           errorCount++;
