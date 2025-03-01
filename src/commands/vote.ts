@@ -39,8 +39,13 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
 
 export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => {
   console.log('voteCommand', ctx.callbackQuery);
-  
-  if (!ctx.callbackQuery.message) return;
+
+  if (!ctx.callbackQuery.message) {
+    await ctx.answerCbQuery('Vote not found');
+    console.error('Vote not found', ctx.callbackQuery.from.username, ctx.callbackQuery.message)
+    await ctx.telegram.sendMessage(6179266599, 'Vote not found ' + ctx.callbackQuery.from.username + ' ' + ctx.callbackQuery.message)
+    return;
+  }
 
   const messageId = ctx.callbackQuery.message.message_id;
   const chatId = ctx.callbackQuery.message.chat.id;

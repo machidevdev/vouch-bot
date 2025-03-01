@@ -28,7 +28,9 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "sharp": "^0.33.5",
     "spotify-url-info": "^3.2.18",
-    "telegraf": "^4.15.3"
+    "telegraf": "^4.15.3",
+    "unfurl.js": "^6.4.0",
+    "url-metadata": "^4.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.4",
