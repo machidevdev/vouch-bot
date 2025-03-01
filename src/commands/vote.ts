@@ -64,6 +64,7 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
 
     if (!vote) {
       await ctx.answerCbQuery('Vote not found');
+      console.error('Vote not found', voterUsername, messageId)
       await ctx.telegram.sendMessage(6179266599, 'Upvote not complete, ' + voterUsername + ' ' + messageId)
       return;
     }
