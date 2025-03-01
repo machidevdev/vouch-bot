@@ -64,6 +64,7 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
 
     if (!vote) {
       await ctx.answerCbQuery('Vote not found');
+      await ctx.telegram.sendMessage(6179266599, 'Upvote not complete, ' + voterUsername + ' ' + messageId)
       return;
     }
 
@@ -137,6 +138,7 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
 
   } catch (error) {
     console.error('Error:', error);
+    await ctx.telegram.sendMessage(6179266599, 'Error recording vote ' + error)
     await ctx.answerCbQuery('Error recording vote');
   }
 });
