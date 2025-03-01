@@ -55,32 +55,28 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
       description
     } = existingVote;
 
-    // Delete all existing votes for this Twitter username
-    try {
-      // Find and delete all votes with this Twitter username
-      await prisma.vote.deleteMany({
-        where: {
-          twitterUsername: twitterUsername
-        }
-      });
-      
-      // Also try to delete their messages
-      const otherVotes = await prisma.vote.findMany({
-        where: {
-          twitterUsername: twitterUsername
-        }
-      });
-      
-      for (const vote of otherVotes) {
-        try {
-          await ctx.telegram.deleteMessage(Number(vote.chatId), Number(vote.messageId));
-        } catch (error) {
-          console.error(`Failed to delete message for vote ${vote.id}:`, error);
-        }
+    // First find all existing votes for this Twitter username
+    const existingVotes = await prisma.vote.findMany({
+      where: {
+        twitterUsername: twitterUsername
       }
-    } catch (error) {
-      console.error('Error deleting existing votes:', error);
+    });
+
+    // Delete all associated messages first
+    for (const vote of existingVotes) {
+      try {
+        await ctx.telegram.deleteMessage(Number(vote.chatId), Number(vote.messageId));
+      } catch (error) {
+        console.error(`Failed to delete message for vote ${vote.id}:`, error);
+      }
     }
+
+    // Then delete all votes from the database
+    await prisma.vote.deleteMany({
+      where: {
+        twitterUsername: twitterUsername
+      }
+    });
 
     // Fetch profile image using the utility function
     console.log(`[Image Fetch] Starting image fetch for @${twitterUsername}`);
