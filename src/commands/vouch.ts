@@ -1,9 +1,6 @@
 import { Composer } from "telegraf";
-import { prisma } from "../utils";
+import { prisma, getProfileImage } from "../utils";
 import { formatVoteMessage } from "../utils";
-import fetch from 'node-fetch';
-
-const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -72,21 +69,8 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
   
   try {
-    console.log(`[Image Fetch] Fetching profile image for @${username}`);
-    
-    let imageUrl: string;
-    try {
-      const response = await fetch(`https://unavatar.io/twitter/${username}?json`, {
-        timeout: 3000
-      });
-      const data = await response.json() as { url: string };
-      
-      imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
-      console.log(`[Image Fetch] Got image URL: ${imageUrl}`);
-    } catch (error) {
-      console.error(`[Image Fetch] Error: ${error}`);
-      imageUrl = FALLBACK_IMAGE;
-    }
+    console.log(`[Image Fetch] Starting image fetch for @${username}`);
+    const imageUrl = await getProfileImage(username);
 
     const message = await ctx.replyWithPhoto(imageUrl, {
       caption: formatVoteMessage(

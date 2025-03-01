@@ -1,9 +1,6 @@
 import { Composer } from "telegraf";
-import { prisma } from "../utils";
+import { prisma, getProfileImage } from "../utils";
 import { formatVoteMessage } from "../utils";
-import fetch from 'node-fetch';
-
-const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
 
 export const refreshCommand = Composer.command('up', async (ctx) => {
   const userMessageId = ctx.message.message_id;
@@ -58,32 +55,36 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
       description
     } = existingVote;
 
-    // Delete the existing message and database entry
+    // Delete all existing votes for this Twitter username
     try {
-      await ctx.telegram.deleteMessage(userChatId, Number(existingVote.messageId));
-      await prisma.vote.delete({
+      // Find and delete all votes with this Twitter username
+      await prisma.vote.deleteMany({
         where: {
-          id: existingVote.id
+          twitterUsername: twitterUsername
         }
       });
+      
+      // Also try to delete their messages
+      const otherVotes = await prisma.vote.findMany({
+        where: {
+          twitterUsername: twitterUsername
+        }
+      });
+      
+      for (const vote of otherVotes) {
+        try {
+          await ctx.telegram.deleteMessage(Number(vote.chatId), Number(vote.messageId));
+        } catch (error) {
+          console.error(`Failed to delete message for vote ${vote.id}:`, error);
+        }
+      }
     } catch (error) {
-      console.error('Error deleting existing vote:', error);
+      console.error('Error deleting existing votes:', error);
     }
 
-    // Fetch profile image
-    console.log(`[Image Fetch] Fetching profile image for @${twitterUsername}`);
-    let imageUrl: string;
-    
-    try {
-      const response = await fetch(`https://unavatar.io/twitter/${twitterUsername}?json`);
-      const data = await response.json() as { url: string };
-      
-      imageUrl = data.url.includes('fallback.png') ? FALLBACK_IMAGE : data.url;
-      console.log(`[Image Fetch] Got image URL: ${imageUrl}`);
-    } catch (error) {
-      console.error(`[Image Fetch] Error: ${error}`);
-      imageUrl = FALLBACK_IMAGE;
-    }
+    // Fetch profile image using the utility function
+    console.log(`[Image Fetch] Starting image fetch for @${twitterUsername}`);
+    const imageUrl = await getProfileImage(twitterUsername);
 
     // Create new message with existing data
     const message = await ctx.replyWithPhoto(imageUrl, {
