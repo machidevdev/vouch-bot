@@ -28,8 +28,9 @@ export async function getProfileImage(username: string): Promise<string> {
         timeout: 5000
       });
       if (metadata.open_graph?.images?.[0]?.url) {
-        console.log(`[Image Fetch] Got image from unfurl: ${metadata.open_graph.images[0].url}`);
-        return metadata.open_graph.images[0].url.replace("200x200", "400x400");
+        const imageUrl = metadata.open_graph.images[0].url;
+        console.log(`[Image Fetch] Got image from unfurl: ${imageUrl}`);
+        return imageUrl.includes("200x200") ? imageUrl.replace("200x200", "400x400") : imageUrl;
       }
     } catch (unfurlError) {
       console.error('[Image Fetch] Unfurl error:', unfurlError);

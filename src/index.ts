@@ -13,6 +13,7 @@ import './commands/settings';
 import { spotifyCommand } from './commands/spotify';
 import { topgolfCommand } from './commands/topgolf';
 import { refreshCommand } from './commands/refresh';
+import { editxCommand } from './commands/editx';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
@@ -34,8 +35,7 @@ bot.command('up', refreshCommand);  // Add the refresh command
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
 
-// Add the remove command handler
-bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware());
+bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
 
 
 
