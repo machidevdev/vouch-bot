@@ -24,10 +24,10 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
     username = urlMatch[1].split('?')[0];
     description = parts.slice(2).join(' ') || null;
   } else {
-    // Check for username format (with @)
-    const usernameMatch = parts[1].match(/@?(\w+)/);
+    // Check for username format (with @), preserving underscores
+    const usernameMatch = parts[1].match(/@?([a-zA-Z0-9_]+)/);
     if (usernameMatch) {
-      username = usernameMatch[1].split('?')[0];
+      username = usernameMatch[1];
       description = parts.slice(2).join(' ') || null;
     }
   }
