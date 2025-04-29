@@ -27,10 +27,20 @@ export async function getProfileImage(username: string): Promise<string> {
       const metadata = await unfurl(`https://x.com/${username}`, {
         timeout: 5000
       });
+      console.log(metadata);
+      console.log(metadata.open_graph?.images?.[0]);
+      
       if (metadata.open_graph?.images?.[0]?.url) {
         const imageUrl = metadata.open_graph.images[0].url;
-        console.log(`[Image Fetch] Got image from unfurl: ${imageUrl}`);
-        return imageUrl.includes("200x200") ? imageUrl.replace("200x200", "400x400") : imageUrl;
+        // Validate the URL
+        try {
+          new URL(imageUrl);
+          console.log(`[Image Fetch] Got image from unfurl: ${imageUrl}`);
+          return imageUrl.includes("200x200") ? imageUrl.replace("200x200", "400x400") : imageUrl;
+        } catch (urlError) {
+          console.error('[Image Fetch] Invalid URL from unfurl:', imageUrl);
+          return FALLBACK_IMAGE;
+        }
       }
     } catch (unfurlError) {
       console.error('[Image Fetch] Unfurl error:', unfurlError);
@@ -47,8 +57,16 @@ export async function getProfileImage(username: string): Promise<string> {
     try {
       const metadata = await unfurl(`https://x.com/${username}`);
       if (metadata.open_graph?.images?.[0]?.url) {
-        console.log(`[Image Fetch] Got image from unfurl: ${metadata.open_graph.images[0].url}`);
-        return metadata.open_graph.images[0].url;
+        const imageUrl = metadata.open_graph.images[0].url;
+        // Validate the URL
+        try {
+          new URL(imageUrl);
+          console.log(`[Image Fetch] Got image from unfurl: ${metadata.open_graph.images[0].url}`);
+          return metadata.open_graph.images[0].url;
+        } catch (urlError) {
+          console.error('[Image Fetch] Invalid URL from unfurl:', imageUrl);
+          return FALLBACK_IMAGE;
+        }
       }
     } catch (unfurlError) {
       console.error('[Image Fetch] Unfurl error:', unfurlError);
