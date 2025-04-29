@@ -1,10 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import fetch from 'node-fetch';
 import { unfurl } from "unfurl.js";
+import { z } from "zod";
 
 export const prisma = new PrismaClient();
 
 const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v1740100690/photo_2025-02-21_02-18-00_mbnnj9.jpg';
+
+// URL schema for validation
+const urlSchema = z.string().url();
 
 export async function getProfileImage(username: string): Promise<string> {
   // First try unavatar.io
@@ -16,8 +20,13 @@ export async function getProfileImage(username: string): Promise<string> {
     
     // If we got a real image (not fallback), return it
     if (!data.url.includes('fallback.png')) {
-      console.log(`[Image Fetch] Got image from unavatar.io: ${data.url}`);
-      return data.url;
+      try {
+        urlSchema.parse(data.url);
+        console.log(`[Image Fetch] Got image from unavatar.io: ${data.url}`);
+        return data.url;
+      } catch (urlError) {
+        console.error('[Image Fetch] Invalid URL from unavatar:', data.url);
+      }
     }
     
     console.log('[Image Fetch] Unavatar returned fallback, trying unfurl...');
@@ -32,14 +41,12 @@ export async function getProfileImage(username: string): Promise<string> {
       
       if (metadata.open_graph?.images?.[0]?.url) {
         const imageUrl = metadata.open_graph.images[0].url;
-        // Validate the URL
         try {
-          new URL(imageUrl);
+          urlSchema.parse(imageUrl);
           console.log(`[Image Fetch] Got image from unfurl: ${imageUrl}`);
           return imageUrl.includes("200x200") ? imageUrl.replace("200x200", "400x400") : imageUrl;
         } catch (urlError) {
           console.error('[Image Fetch] Invalid URL from unfurl:', imageUrl);
-          return FALLBACK_IMAGE;
         }
       }
     } catch (unfurlError) {
@@ -58,14 +65,12 @@ export async function getProfileImage(username: string): Promise<string> {
       const metadata = await unfurl(`https://x.com/${username}`);
       if (metadata.open_graph?.images?.[0]?.url) {
         const imageUrl = metadata.open_graph.images[0].url;
-        // Validate the URL
         try {
-          new URL(imageUrl);
+          urlSchema.parse(imageUrl);
           console.log(`[Image Fetch] Got image from unfurl: ${metadata.open_graph.images[0].url}`);
           return metadata.open_graph.images[0].url;
         } catch (urlError) {
           console.error('[Image Fetch] Invalid URL from unfurl:', imageUrl);
-          return FALLBACK_IMAGE;
         }
       }
     } catch (unfurlError) {
