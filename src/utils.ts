@@ -10,6 +10,11 @@ const FALLBACK_IMAGE = 'https://res.cloudinary.com/dqhw3jubx/image/upload/v17401
 // URL schema for validation
 const urlSchema = z.string().url();
 
+// Helper function to check if URL is an invalid Twitter image
+const isInvalidTwitterImage = (url: string): boolean => {
+  return url.includes('abs.twimg.com/responsive-web');
+}
+
 export async function getProfileImage(username: string): Promise<string> {
   // First try unavatar.io
   try {
@@ -22,6 +27,10 @@ export async function getProfileImage(username: string): Promise<string> {
     if (!data.url.includes('fallback.png')) {
       try {
         urlSchema.parse(data.url);
+        if (isInvalidTwitterImage(data.url)) {
+          console.log('[Image Fetch] Invalid Twitter image URL detected:', data.url);
+          throw new Error('Invalid Twitter image URL');
+        }
         console.log(`[Image Fetch] Got image from unavatar.io: ${data.url}`);
         return data.url;
       } catch (urlError) {
@@ -43,6 +52,10 @@ export async function getProfileImage(username: string): Promise<string> {
         const imageUrl = metadata.open_graph.images[0].url;
         try {
           urlSchema.parse(imageUrl);
+          if (isInvalidTwitterImage(imageUrl)) {
+            console.log('[Image Fetch] Invalid Twitter image URL detected:', imageUrl);
+            throw new Error('Invalid Twitter image URL');
+          }
           console.log(`[Image Fetch] Got image from unfurl: ${imageUrl}`);
           return imageUrl.includes("200x200") ? imageUrl.replace("200x200", "400x400") : imageUrl;
         } catch (urlError) {
@@ -67,6 +80,10 @@ export async function getProfileImage(username: string): Promise<string> {
         const imageUrl = metadata.open_graph.images[0].url;
         try {
           urlSchema.parse(imageUrl);
+          if (isInvalidTwitterImage(imageUrl)) {
+            console.log('[Image Fetch] Invalid Twitter image URL detected:', imageUrl);
+            throw new Error('Invalid Twitter image URL');
+          }
           console.log(`[Image Fetch] Got image from unfurl: ${metadata.open_graph.images[0].url}`);
           return metadata.open_graph.images[0].url;
         } catch (urlError) {
