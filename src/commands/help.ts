@@ -1,14 +1,30 @@
 import { Composer } from "telegraf";
 
 export const helpCommand = Composer.command('help', async (ctx, next) => {
-  const message = `*Available Commands:*
+  const message = `🤖 *Bot Commands & Features*
 
-  • \`/vouch @username description(optional)\` \\- Create a new vouch
-  • \`/vouch https://x\\.com/username description(optional)\` \\- Create a vouch from URL
-  • Reply to a vouch with \`x\` to delete your own vouch
-  • \`/up\` \\- Update a vouch's pfp and bump it\\. Usable only by who created the vouch;
-  When using just @username be sure to enter the user's X handle\\.
-  Note: Some profile pictures are not loading correctly, this is a known issue\\.`;
+📝 *Vouching System:*
+• \`/vouch @username [description]\` \\- Create a vouch for someone
+• \`/vouch https://x\\.com/username [description]\` \\- Vouch using profile URL
+• \`/vouch username [description]\` \\- Vouch without @ symbol
+• \`/up\` \\- Update your vouch's profile picture and bump it
+• Reply with \`/x\` to your own vouch to delete it
+
+🔒 *Anonymous Feedback \\(DMs Only\\):*
+• \`/veto @username your feedback\` \\- Submit anonymous feedback
+• \`/veto username your feedback\` \\- Submit without @ symbol  
+• \`/veto https://x\\.com/username your feedback\` \\- Submit using profile URL
+• \`/list\` \\- View all your submitted feedback
+• *Note:* Each user can only submit one feedback per target
+
+🎵 *Music Sharing:*
+• Share Spotify links and they'll render with a rich preview
+• Supported: tracks, albums, playlists, and artist pages
+
+💡 *Tips:*
+• Always use the person's actual X/Twitter handle
+• Some profile pictures may not load \\- this is a known issue
+• Veto commands only work in direct messages with the bot`;
     await ctx.replyWithMarkdownV2(message);
     await next();
 });

@@ -14,6 +14,11 @@ import { spotifyCommand } from './commands/spotify';
 import { topgolfCommand } from './commands/topgolf';
 import { refreshCommand } from './commands/refresh';
 import { editxCommand } from './commands/editx';
+import { vetoCommand } from './commands/veto';
+import { vetoHandler } from './commands/vetoHandler';
+import { vetoCallbacks } from './commands/vetoCallbacks';
+import { vetoVoteCommand } from './commands/vetoVote';
+import { listCommand } from './commands/list';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
@@ -31,10 +36,19 @@ bot.catch((err, ctx) => {
 bot.command('vouch', vouchCommand);  // Register specific commands first
 bot.command('start', startCommand);
 bot.command('up', refreshCommand);  // Add the refresh command
+bot.command('veto', vetoCommand);  // Register veto command with explicit precedence
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
+bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
 
+// Register veto callback handlers
+bot.use(vetoCallbacks);
+
+// Register DM-only handlers separately (they have their own auth middleware)
+bot.use(vetoHandler, listCommand);
+
+// Register group commands with main auth middleware
 bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
 
 
