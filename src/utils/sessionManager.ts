@@ -4,6 +4,7 @@ export interface VetoSession {
   targetUsername?: string;
   feedback?: string;
   images?: string[];
+  messageIds?: number[];
   createdAt: Date;
 }
 
@@ -39,6 +40,17 @@ class SessionManager {
 
   hasActiveSession(userId: number): boolean {
     return this.sessions.has(userId);
+  }
+
+  addMessageId(userId: number, messageId: number): void {
+    const session = this.sessions.get(userId);
+    if (session) {
+      if (!session.messageIds) {
+        session.messageIds = [];
+      }
+      session.messageIds.push(messageId);
+      this.sessions.set(userId, session);
+    }
   }
 
   // Clean up old sessions (older than 30 minutes)

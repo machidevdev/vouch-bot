@@ -42,6 +42,16 @@ export const vetoCallbacks = Composer.on('callback_query', async (ctx) => {
       case 'veto_back_review':
         await handleBackToReview(ctx, session);
         break;
+      // Navigation buttons
+      case 'veto_cancel':
+        await handleCancel(ctx, session);
+        break;
+      case 'veto_back_to_user':
+        await handleBackToUser(ctx, session);
+        break;
+      case 'veto_back_to_feedback':
+        await handleBackToFeedback(ctx, session);
+        break;
       // Final actions
       case 'veto_final_send':
         const { finalizeVeto } = await import('./vetoHandler');
@@ -66,30 +76,45 @@ async function handleConfirmUser(ctx: any, session: any) {
   sessionManager.updateSession(ctx.from.id, { step: 'feedback' });
   
   await ctx.editMessageCaption(
-    `✅ <b>User Confirmed:</b> @${session.targetUsername}\n\n<b>Step 2 of 3: Feedback</b>\n\nPlease explain why you're vetoing this user. Be specific and constructive.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
-    { parse_mode: 'HTML', reply_markup: undefined }
+    `✅ <b>User Confirmed:</b> @${session.targetUsername}\n\n<b>💬 Step 2 of 3: Feedback</b>\n\nPlease explain why you're vetoing this user. Be specific and constructive.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
+    { 
+      parse_mode: 'HTML', 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Back', callback_data: 'veto_back_to_user' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
   );
 }
 
 async function handleEditUser(ctx: any, session: any) {
   await ctx.editMessageCaption(
-    `<b>Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL again.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
-    { parse_mode: 'HTML', reply_markup: undefined }
+    `<b>📝 Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL again.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
+    { 
+      parse_mode: 'HTML', 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
   );
   
-  sessionManager.updateSession(ctx.from.id, { step: 'username', targetUsername: undefined });
+  sessionManager.updateSession(ctx.from.id, { step: 'username', targetUsername: undefined, feedback: undefined, images: [] });
 }
 
 async function handleConfirmFeedback(ctx: any, session: any) {
   sessionManager.updateSession(ctx.from.id, { step: 'images' });
   
   await ctx.editMessageText(
-    `✅ <b>Feedback Confirmed</b>\n\n<b>Step 3 of 3: Attach Images (Optional)</b>\n\nSend any images you want to include with your veto, or skip this step.\n\n<i>You can add up to 5 images.</i>`,
+    `✅ <b>Feedback Confirmed</b>\n\n<b>📷 Step 3 of 3: Attach Images (Optional)</b>\n\nSend any images you want to include with your veto, or skip this step.\n\n<i>You can add up to 5 images. Send them one by one or select multiple at once.</i>`,
     {
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⏭️ Skip Images', callback_data: 'veto_skip_images' }]
+          [{ text: '⏭️ Skip to Review', callback_data: 'veto_skip_images' }],
+          [{ text: '🔙 Back', callback_data: 'veto_back_to_feedback' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
         ]
       }
     }
@@ -98,11 +123,18 @@ async function handleConfirmFeedback(ctx: any, session: any) {
 
 async function handleEditFeedback(ctx: any, session: any) {
   await ctx.editMessageText(
-    `<b>Step 2 of 3: Feedback</b>\n\nPlease send your feedback again.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
-    { parse_mode: 'HTML', reply_markup: undefined }
+    `<b>💬 Step 2 of 3: Feedback</b>\n\nPlease send your feedback again.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
+    { 
+      parse_mode: 'HTML', 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Back', callback_data: 'veto_back_to_user' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
   );
   
-  sessionManager.updateSession(ctx.from.id, { feedback: undefined });
+  sessionManager.updateSession(ctx.from.id, { feedback: undefined, images: [] });
 }
 
 async function handleDoneImages(ctx: any, session: any) {
@@ -127,13 +159,12 @@ async function showVetoPreview(ctx: any, session: any) {
       1 // Single veto
     ) + `\n\n🔍 <b>PREVIEW - This is how your veto will appear</b>`;
 
-    const finalCaption = previewCaption + imageText + `\n\n<b>⚠️ This action is irreversible once submitted.</b>\n\nWhat would you like to do?`;
+    const finalCaption = previewCaption + imageText + `\n\n<b>📋 Review Your Veto</b>\n<b>⚠️ This action is irreversible once submitted.</b>\n\nWhat would you like to do?`;
     
     const replyMarkup = {
       inline_keyboard: [
-        [{ text: '✅ Send Veto', callback_data: 'veto_final_send' }],
-        [{ text: '✏️ Modify', callback_data: 'veto_final_modify' }],
-        [{ text: '❌ Cancel', callback_data: 'veto_final_cancel' }]
+        [{ text: '✅ Submit Veto', callback_data: 'veto_final_send' }],
+        [{ text: '✏️ Modify', callback_data: 'veto_final_modify' }, { text: '❌ Cancel', callback_data: 'veto_final_cancel' }]
       ]
     };
 
@@ -175,20 +206,34 @@ async function showVetoPreview(ctx: any, session: any) {
 }
 
 async function handleModifyUser(ctx: any, session: any) {
-  sessionManager.updateSession(ctx.from.id, { step: 'username', targetUsername: undefined });
+  sessionManager.updateSession(ctx.from.id, { step: 'username', targetUsername: undefined, feedback: undefined, images: [] });
   
   await ctx.editMessageText(
-    `<b>Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
-    { parse_mode: 'HTML', reply_markup: undefined }
+    `<b>📝 Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
+    { 
+      parse_mode: 'HTML', 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
   );
 }
 
 async function handleModifyFeedback(ctx: any, session: any) {
-  sessionManager.updateSession(ctx.from.id, { step: 'feedback', feedback: undefined });
+  sessionManager.updateSession(ctx.from.id, { step: 'feedback', feedback: undefined, images: [] });
   
   await ctx.editMessageText(
-    `<b>Step 2 of 3: Feedback</b>\n\nPlease send your feedback.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
-    { parse_mode: 'HTML', reply_markup: undefined }
+    `<b>💬 Step 2 of 3: Feedback</b>\n\nPlease send your feedback.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
+    { 
+      parse_mode: 'HTML', 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Back', callback_data: 'veto_back_to_user' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
   );
 }
 
@@ -196,12 +241,13 @@ async function handleModifyImages(ctx: any, session: any) {
   sessionManager.updateSession(ctx.from.id, { step: 'images', images: [] });
   
   await ctx.editMessageText(
-    `<b>Step 3 of 3: Attach Images (Optional)</b>\n\nSend any images you want to include with your veto, or skip this step.\n\n<i>You can add up to 5 images.</i>`,
+    `<b>📷 Step 3 of 3: Attach Images (Optional)</b>\n\nSend any images you want to include with your veto, or skip this step.\n\n<i>You can add up to 5 images. Send them one by one or select multiple at once.</i>`,
     {
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⏭️ Skip Images', callback_data: 'veto_skip_images' }]
+          [{ text: '⏭️ Skip to Review', callback_data: 'veto_skip_images' }],
+          [{ text: '🔙 Back', callback_data: 'veto_back_to_feedback' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
         ]
       }
     }
@@ -212,5 +258,125 @@ async function handleBackToReview(ctx: any, session: any) {
   sessionManager.updateSession(ctx.from.id, { step: 'review' });
   
   await showVetoPreview(ctx, session);
+}
+
+async function handleCancel(ctx: any, session: any) {
+  const userId = ctx.from.id;
+  
+  // Delete all tracked messages
+  if (session.messageIds && session.messageIds.length > 0) {
+    for (const messageId of session.messageIds) {
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, messageId);
+      } catch (error) {
+        // Ignore errors for messages that can't be deleted (too old, already deleted, etc.)
+        console.log(`Could not delete message ${messageId}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+  
+  // Try to delete/edit the current message (the one with cancel button)
+  try {
+    await ctx.editMessageText('❌ Veto process cancelled.');
+    // Wait a moment then delete this message too
+    setTimeout(async () => {
+      try {
+        await ctx.deleteMessage();
+      } catch (error) {
+        console.log('Could not delete cancel message:', error instanceof Error ? error.message : String(error));
+      }
+    }, 2000);
+  } catch {
+    try {
+      await ctx.editMessageCaption('❌ Veto process cancelled.');
+      // Wait a moment then delete this message too
+      setTimeout(async () => {
+        try {
+          await ctx.deleteMessage();
+        } catch (error) {
+          console.log('Could not delete cancel message:', error instanceof Error ? error.message : String(error));
+        }
+      }, 2000);
+    } catch {
+      // If we can't edit, send a new message that will auto-delete
+      const cancelMessage = await ctx.reply('❌ Veto process cancelled.');
+      setTimeout(async () => {
+        try {
+          await ctx.telegram.deleteMessage(ctx.chat.id, cancelMessage.message_id);
+        } catch (error) {
+          console.log('Could not delete cancel message:', error instanceof Error ? error.message : String(error));
+        }
+      }, 2000);
+    }
+  }
+  
+  // Clear the session
+  sessionManager.clearSession(userId);
+}
+
+async function handleBackToUser(ctx: any, session: any) {
+  sessionManager.updateSession(ctx.from.id, { step: 'username', targetUsername: undefined, feedback: undefined, images: [] });
+  
+  try {
+    await ctx.editMessageText(
+      `<b>📝 Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL of the person you want to veto.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+          ]
+        }
+      }
+    );
+  } catch {
+    const message = await ctx.reply(
+      `<b>📝 Step 1 of 3: Target User</b>\n\nPlease send the Twitter username or profile URL of the person you want to veto.\n\n<b>Accepted formats:</b>\n• @username\n• username\n• https://x.com/username`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+          ]
+        }
+      }
+    );
+    
+    // Track this message
+    sessionManager.addMessageId(ctx.from.id, message.message_id);
+  }
+}
+
+async function handleBackToFeedback(ctx: any, session: any) {
+  sessionManager.updateSession(ctx.from.id, { step: 'feedback', feedback: undefined, images: [] });
+  
+  try {
+    await ctx.editMessageText(
+      `<b>💬 Step 2 of 3: Feedback</b>\n\nPlease explain why you're vetoing @${session.targetUsername}. Be specific and constructive.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back', callback_data: 'veto_back_to_user' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
+          ]
+        }
+      }
+    );
+  } catch {
+    const message = await ctx.reply(
+      `<b>💬 Step 2 of 3: Feedback</b>\n\nPlease explain why you're vetoing @${session.targetUsername}. Be specific and constructive.\n\n<i>You can write as much as needed (max 2000 characters).</i>`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back', callback_data: 'veto_back_to_user' }, { text: '❌ Cancel', callback_data: 'veto_cancel' }]
+          ]
+        }
+      }
+    );
+    
+    // Track this message
+    sessionManager.addMessageId(ctx.from.id, message.message_id);
+  }
 }
 
