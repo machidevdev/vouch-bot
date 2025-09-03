@@ -1,4 +1,4 @@
-import { Composer, Context, Telegraf } from 'telegraf';
+import { Composer, Telegraf } from 'telegraf';
 import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
 import { config } from './config/env';
@@ -21,6 +21,15 @@ import { vetoVoteCommand } from './commands/vetoVote';
 import { listCommand } from './commands/list';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
+
+// Apply auth middleware globally (except for DMs)
+bot.use((ctx, next) => {
+  if (ctx.chat?.type === 'private') {
+    return next(); // Skip auth for DMs
+  }
+  return authMiddleware()(ctx, next);
+});
+
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
 
 
@@ -47,8 +56,8 @@ bot.use(vetoCallbacks);
 // Register DM-only handlers separately (they have their own auth middleware)
 bot.use(startCommand, vetoHandler, listCommand);
 
-// Register group commands with main auth middleware
-bot.use(authMiddleware(), loggerMiddleware, helpCommand, removeCommand, spotifyCommand, topgolfCommand, editxCommand);
+// Register group commands (auth middleware already applied globally)
+bot.use(loggerMiddleware, helpCommand, removeCommand, spotifyCommand, topgolfCommand, editxCommand);
 
 
 
