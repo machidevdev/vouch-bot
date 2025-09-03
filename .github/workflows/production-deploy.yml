@@ -24,16 +24,31 @@ jobs:
         with:
           node-version: '20.5.0'
 
-      # Step 3: Install dependencies
+      # Step 3: Validate Environment Variables
+      - name: Validate Required Environment Variables
+        run: |
+          echo "Validating required environment variables..."
+          if [ -z "$BOT_TOKEN" ]; then echo "Missing BOT_TOKEN"; exit 1; fi
+          if [ -z "$DATABASE_URL_PROD" ]; then echo "Missing DATABASE_URL_PROD"; exit 1; fi
+          if [ -z "$ALLOWED_GROUP_ID" ]; then echo "Missing ALLOWED_GROUP_ID"; exit 1; fi
+          if [ -z "$THREAD_ID" ]; then echo "Missing THREAD_ID"; exit 1; fi
+          echo "All required environment variables are present"
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
+          ALLOWED_GROUP_ID: ${{ secrets.ALLOWED_GROUP_ID }}
+          THREAD_ID: ${{ secrets.THREAD_ID }}
+
+      # Step 4: Install dependencies
       - name: Install Dependencies
         run: npm install
 
-      # Step 4: Run Prisma Migrations
+      # Step 5: Run Prisma Migrations
       - name: Run Prisma Migrations on Production
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
-      # Step 5: Verify Database State
+      # Step 6: Verify Database State
       - name: Verify Prisma Schema
         run: npx prisma db pull
