@@ -22,16 +22,7 @@ import { listCommand } from './commands/list';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 
-// Apply auth middleware globally (except for DMs)
-bot.use((ctx, next) => {
-  if (ctx.chat?.type === 'private') {
-    return next(); // Skip auth for DMs
-  }
-  return authMiddleware()(ctx, next);
-});
-
 bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
-
 
 bot.catch((err, ctx) => {
   try{
@@ -41,23 +32,29 @@ bot.catch((err, ctx) => {
   }
 });
 
-// Register regular commands in order of specificity
-bot.command('vouch', vouchCommand);  // Register specific commands first
-bot.command('up', refreshCommand);  // Add the refresh command
-bot.command('veto', vetoCommand);  // Register veto command with explicit precedence
-
-// Register action handlers (for inline buttons)
-bot.action(/^\/vote_(up|down)$/, voteCommand);
-bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
+// Register DM-only handlers first (no auth needed for DMs)
+bot.use(startCommand, vetoHandler, listCommand);
 
 // Register veto callback handlers
 bot.use(vetoCallbacks);
 
-// Register DM-only handlers separately (they have their own auth middleware)
-bot.use(startCommand, vetoHandler, listCommand);
+// Apply auth middleware for group commands
+bot.use((ctx, next) => {
+  if (ctx.chat?.type === 'private') {
+    return next(); // Skip auth for DMs
+  }
+  return authMiddleware()(ctx, next);
+});
 
-// Register group commands (auth middleware already applied globally)
+// Register all group commands (protected by auth middleware above)
+bot.command('vouch', vouchCommand);
+bot.command('up', refreshCommand);
+bot.command('veto', vetoCommand);
 bot.use(loggerMiddleware, helpCommand, removeCommand, spotifyCommand, topgolfCommand, editxCommand);
+
+// Register action handlers (for inline buttons)
+bot.action(/^\/vote_(up|down)$/, voteCommand);
+bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
 
 
 
