@@ -23,5 +23,6 @@ export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<v
     return;
   }
 
+  console.log('Auth middleware: proceeding to next()');
   return next();
 };

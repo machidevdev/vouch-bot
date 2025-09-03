@@ -32,22 +32,17 @@ bot.catch((err, ctx) => {
   }
 });
 
-// Register DM-only handlers first (no auth needed for DMs)
-bot.use(startCommand, vetoHandler, listCommand);
+// Register regular commands in order of specificity
+bot.command('vouch', vouchCommand);  // Register specific commands first
+bot.command('start', startCommand);
+bot.command('up', refreshCommand);  // Add the refresh command
+bot.command('veto', vetoCommand);
+bot.command('help', helpCommand);
 
-// Register veto callback handlers
+bot.use(startCommand, vetoHandler, listCommand);
 bot.use(vetoCallbacks);
 
-// Register all group commands first
-bot.command('vouch', authMiddleware(), vouchCommand);
-bot.command('up', authMiddleware(), refreshCommand);
-bot.command('veto', authMiddleware(), vetoCommand);
-bot.command('help', authMiddleware(), helpCommand);
-bot.command('remove', authMiddleware(), removeCommand);
-bot.command('spotify', authMiddleware(), spotifyCommand);
-bot.command('topgolf', authMiddleware(), topgolfCommand);
-bot.command('editx', authMiddleware(), editxCommand);
-bot.use(loggerMiddleware);
+bot.use(removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
