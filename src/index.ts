@@ -38,19 +38,16 @@ bot.use(startCommand, vetoHandler, listCommand);
 // Register veto callback handlers
 bot.use(vetoCallbacks);
 
-// Apply auth middleware for group commands
-bot.use((ctx, next) => {
-  if (ctx.chat?.type === 'private') {
-    return next(); // Skip auth for DMs
-  }
-  return authMiddleware()(ctx, next);
-});
-
-// Register all group commands (protected by auth middleware above)
-bot.command('vouch', vouchCommand);
-bot.command('up', refreshCommand);
-bot.command('veto', vetoCommand);
-bot.use(loggerMiddleware, helpCommand, removeCommand, spotifyCommand, topgolfCommand, editxCommand);
+// Register all group commands first
+bot.command('vouch', authMiddleware(), vouchCommand);
+bot.command('up', authMiddleware(), refreshCommand);
+bot.command('veto', authMiddleware(), vetoCommand);
+bot.command('help', authMiddleware(), helpCommand);
+bot.command('remove', authMiddleware(), removeCommand);
+bot.command('spotify', authMiddleware(), spotifyCommand);
+bot.command('topgolf', authMiddleware(), topgolfCommand);
+bot.command('editx', authMiddleware(), editxCommand);
+bot.use(loggerMiddleware);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
