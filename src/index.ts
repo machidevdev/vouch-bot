@@ -48,7 +48,7 @@ bot.use(vetoCallbacks);
 bot.use(startCommand, vetoHandler, listCommand);
 
 // Register group commands with main auth middleware
-bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
+bot.use(authMiddleware(), loggerMiddleware, helpCommand, removeCommand, spotifyCommand, topgolfCommand, editxCommand);
 
 
 
