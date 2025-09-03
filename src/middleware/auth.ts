@@ -10,7 +10,8 @@ export const authMiddleware = () => async (ctx: MyContext, next: () => Promise<v
 
   // Get the chat ID from the context
   const chatId = ctx.chat?.id.toString();
-
+  console.log('chatId', chatId);
+  console.log('config.allowedGroupId', config.allowedGroupId);
   if (!chatId) {
     console.warn('No chat ID found in context');
     return;
