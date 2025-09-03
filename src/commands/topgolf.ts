@@ -21,5 +21,5 @@ export const topgolfCommand = Composer.on(message('text'), async (ctx, next) => 
       message_id: ctx.message.message_id
     }
   });
-  return next();
+  await next();
 });

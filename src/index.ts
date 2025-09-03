@@ -39,10 +39,13 @@ bot.command('up', refreshCommand);  // Add the refresh command
 bot.command('veto', vetoCommand);
 bot.command('help', helpCommand);
 
+// Register message handlers that should work in group without auth
+bot.use(topgolfCommand, spotifyCommand);
+
 bot.use(startCommand, vetoHandler, listCommand);
 bot.use(vetoCallbacks);
 
-bot.use(removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
+bot.use(removeCommand, loggerMiddleware, authMiddleware(), editxCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
