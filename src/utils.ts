@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import fetch from 'node-fetch';
 import { unfurl } from "unfurl.js";
 import { z } from "zod";
+import * as crypto from 'crypto';
 
 export const prisma = new PrismaClient();
 
@@ -98,6 +99,11 @@ export async function getProfileImage(username: string): Promise<string> {
   }
 }
 
+// Hash user ID for anonymous feedback storage
+export const hashUserId = (userId: string): string => {
+  return crypto.createHash('sha256').update(userId).digest('hex');
+};
+
 export const formatVoteMessage = (twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string, description?: string): string => {
   let statusMessage = '';
   
@@ -121,4 +127,17 @@ Vouched by: @${createdBy}${descriptionText}
 <b>Current votes:</b>
 ✅: <b>${upvotes}</b>
 ❌: <b>${downvotes}</b>${statusMessage}`;
+}
+
+export const formatVetoMessage = (twitterUsername: string, _upvotes: number, _downvotes: number, feedbackList: string[], vetoCount: number): string => {
+  const feedbackText = feedbackList.map((feedback) => 
+    `- ${feedback}`
+  ).join('\n');
+
+  return `🚨 <b>Anonymous Veto${vetoCount > 1 ? `s (${vetoCount})` : ''}</b>
+
+<b>User:</b> <a href="https://x.com/${twitterUsername}">@${twitterUsername}</a>
+
+<b>Feedback:</b>
+${feedbackText}`;
 }

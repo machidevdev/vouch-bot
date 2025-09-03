@@ -12,7 +12,7 @@ if (environment !== 'production') {
 
 // Validate required environment variables
 const requiredEnvVars = ['BOT_TOKEN', 'DATABASE_URL'] as const;
-const conditionalEnvVars = ['ALLOWED_GROUP_ID'] as const;
+const conditionalEnvVars = ['ALLOWED_GROUP_ID', 'THREAD_ID'] as const;
 
 const productionEnvVars = ['BOT_TOKEN', 'DATABASE_URL', 'ALLOWED_GROUP_ID'] as const;
 
@@ -34,6 +34,7 @@ export const config = {
   botToken: process.env.BOT_TOKEN!,
   databaseUrl: process.env.DATABASE_URL!,
   allowedGroupId: environment === 'local' ? 'local' : process.env.ALLOWED_GROUP_ID!,
+  threadId: process.env.THREAD_ID,
   isProduction: environment === 'production',
   isStaging: environment === 'staging',
   isDevelopment: environment === 'local',

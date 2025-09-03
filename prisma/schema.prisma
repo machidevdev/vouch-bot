@@ -29,3 +29,18 @@ model Settings {
   requiredDownvotes Int    @default(3)
   updatedAt       DateTime @updatedAt
 }
+
+model Feedback {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  targetUsername     String
+  feedback           String[] @default([])
+  submittedBy        String[] @default([])
+  upvoterUsernames   String[] @default([])
+  downvoterUsernames String[] @default([])
+  messageId          BigInt?
+  chatId             BigInt?
+  
+  @@unique([messageId, chatId])
+}
