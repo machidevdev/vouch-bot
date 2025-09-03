@@ -12,8 +12,14 @@ export const vetoVoteCommand = Composer.action(/^\/veto_(up|down)$/, async (ctx)
 
   const messageId = ctx.callbackQuery.message.message_id;
   const chatId = ctx.callbackQuery.message.chat.id;
-  const voterUsername = ctx.from.username!;
+  const voterUsername = ctx.from.username;
   const isUpvote = ctx.match[1] === 'up';
+
+  // Check if user has a username (required for voting)
+  if (!voterUsername) {
+    await ctx.answerCbQuery('❌ You need a Telegram username to vote. Please set one in your Telegram settings.');
+    return;
+  }
 
   try {
     const veto = await prisma.feedback.findUnique({

@@ -6,6 +6,12 @@ export const vetoCallbacks = Composer.on('callback_query', async (ctx) => {
   const session = sessionManager.getSession(userId);
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
 
+  // Handle start menu callbacks (don't require session)
+  if (data?.startsWith('start_')) {
+    await handleStartMenuCallbacks(ctx, data);
+    return;
+  }
+  
   if (!session || !data?.startsWith('veto_')) {
     return;
   }
@@ -51,6 +57,9 @@ export const vetoCallbacks = Composer.on('callback_query', async (ctx) => {
         break;
       case 'veto_back_to_feedback':
         await handleBackToFeedback(ctx, session);
+        break;
+      case 'veto_start_process':
+        await handleStartProcess(ctx);
         break;
       // Final actions
       case 'veto_final_send':
@@ -378,5 +387,219 @@ async function handleBackToFeedback(ctx: any, session: any) {
     // Track this message
     sessionManager.addMessageId(ctx.from.id, message.message_id);
   }
+}
+
+async function handleStartProcess(ctx: any) {
+  const userId = ctx.from.id;
+  
+  // Check if user already has an active session
+  if (sessionManager.hasActiveSession(userId)) {
+    await ctx.answerCbQuery('❌ You already have an active veto process running.');
+    return;
+  }
+  
+  // Start new veto session
+  sessionManager.startSession(userId);
+  
+  // Edit the current message to start the veto process
+  const message = await ctx.editMessageText(
+    `🔒 <b>Anonymous Veto Process Started</b>\n\n` +
+    `<b>📝 Step 1 of 3: Target User</b>\n\n` +
+    `Please send the Twitter username or profile URL of the person you want to veto.\n\n` +
+    `<b>Accepted formats:</b>\n` +
+    `• @username\n` +
+    `• username\n` +
+    `• https://x.com/username`,
+    { 
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
+  );
+  
+  // Track this message
+  sessionManager.addMessageId(userId, message.message_id);
+  
+  await ctx.answerCbQuery('✅ Veto process started!');
+}
+
+async function handleStartMenuCallbacks(ctx: any, data: string) {
+  await ctx.answerCbQuery();
+  
+  switch (data) {
+    case 'start_veto':
+      await handleStartVeto(ctx);
+      break;
+    case 'start_list':
+      await handleStartList(ctx);
+      break;
+    case 'start_help':
+      await handleStartHelp(ctx);
+      break;
+    case 'start_back_menu':
+      await handleBackToMenu(ctx);
+      break;
+  }
+}
+
+async function handleStartVeto(ctx: any) {
+  const userId = ctx.from.id;
+  
+  // Check if user already has an active session
+  if (sessionManager.hasActiveSession(userId)) {
+    await ctx.editMessageText(
+      '❌ <b>Active Veto Process Found</b>\n\nYou already have an active veto process running. Please complete or cancel it first.',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Menu', callback_data: 'start_back_menu' }]
+          ]
+        }
+      }
+    );
+    return;
+  }
+  
+  // Start new veto session
+  sessionManager.startSession(userId);
+  
+  // Edit the current message to start the veto process
+  const message = await ctx.editMessageText(
+    `🔒 <b>Anonymous Veto Process Started</b>\n\n` +
+    `<b>📝 Step 1 of 3: Target User</b>\n\n` +
+    `Please send the Twitter username or profile URL of the person you want to veto.\n\n` +
+    `<b>Accepted formats:</b>\n` +
+    `• @username\n` +
+    `• username\n` +
+    `• https://x.com/username`,
+    { 
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'veto_cancel' }]
+        ]
+      }
+    }
+  );
+  
+  // Track this message
+  sessionManager.addMessageId(userId, message.message_id);
+}
+
+async function handleStartList(ctx: any) {
+  try {
+    const hashedUserId = await import('../utils').then(m => m.hashUserId(ctx.from.id.toString()));
+    const { prisma } = await import('../utils');
+    
+    // Fetch all feedback submitted by this user
+    const userFeedback = await prisma.feedback.findMany({
+      where: {
+        submittedBy: { has: hashedUserId }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    if (userFeedback.length === 0) {
+      await ctx.editMessageText(
+        '📋 <b>Your Reports</b>\n\nYou haven\'t submitted any reports yet.\n\nUse the veto feature to report problematic users.',
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🚨 Start Veto Process', callback_data: 'start_veto' }],
+              [{ text: '🔙 Back to Menu', callback_data: 'start_back_menu' }]
+            ]
+          }
+        }
+      );
+      return;
+    }
+    
+    const reportList = userFeedback.map((feedback, index) => 
+      `${index + 1}. <b>@${feedback.targetUsername}</b>\n` +
+      `   ✅ ${feedback.upvoterUsernames.length} | ❌ ${feedback.downvoterUsernames.length}\n` +
+      `   📅 ${feedback.createdAt.toLocaleDateString()}`
+    ).join('\n\n');
+    
+    await ctx.editMessageText(
+      `📋 <b>Your Reports (${userFeedback.length})</b>\n\n${reportList}`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Menu', callback_data: 'start_back_menu' }]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error('Error loading user reports:', error);
+    await ctx.editMessageText(
+      '❌ <b>Error</b>\n\nCould not load your reports. Please try again later.',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Menu', callback_data: 'start_back_menu' }]
+          ]
+        }
+      }
+    );
+  }
+}
+
+async function handleStartHelp(ctx: any) {
+  await ctx.editMessageText(
+    `ℹ️ <b>Safe Bot Help</b>\n\n` +
+    `<b>🚨 Anonymous Veto</b>\n` +
+    `Report problematic users privately through a 3-step process:\n` +
+    `• Step 1: Enter Twitter username/URL\n` +
+    `• Step 2: Provide detailed feedback\n` +
+    `• Step 3: Attach supporting images (optional)\n\n` +
+    `<b>📋 View Reports</b>\n` +
+    `Browse community feedback and vote on existing reports.\n\n` +
+    `<b>🔒 Privacy</b>\n` +
+    `All reports are anonymous and user IDs are hashed for privacy.\n\n` +
+    `<b>⚠️ Guidelines</b>\n` +
+    `• One report per user per target\n` +
+    `• Be specific and constructive in feedback\n` +
+    `• Only group members can access these features`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Back to Menu', callback_data: 'start_back_menu' }]
+        ]
+      }
+    }
+  );
+}
+
+async function handleBackToMenu(ctx: any) {
+  const userName = ctx.from.first_name || 'there';
+  
+  await ctx.editMessageText(
+    `👋 <b>Welcome ${userName}!</b>\n\n` +
+    `🛡️ <b>Safe Bot</b> - Community Safety & Verification\n\n` +
+    `<b>Available Features:</b>\n` +
+    `🚨 <b>Anonymous Veto</b> - Report problematic users privately\n` +
+    `📋 <b>View Reports</b> - See community feedback and votes\n\n` +
+    `Select a feature to get started:`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🚨 Start Veto Process', callback_data: 'start_veto' }],
+          [{ text: '📋 View Reports', callback_data: 'start_list' }],
+          [{ text: 'ℹ️ Help & Info', callback_data: 'start_help' }]
+        ]
+      }
+    }
+  );
 }
 

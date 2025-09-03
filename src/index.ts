@@ -34,7 +34,6 @@ bot.catch((err, ctx) => {
 
 // Register regular commands in order of specificity
 bot.command('vouch', vouchCommand);  // Register specific commands first
-bot.command('start', startCommand);
 bot.command('up', refreshCommand);  // Add the refresh command
 bot.command('veto', vetoCommand);  // Register veto command with explicit precedence
 
@@ -46,7 +45,7 @@ bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
 bot.use(vetoCallbacks);
 
 // Register DM-only handlers separately (they have their own auth middleware)
-bot.use(vetoHandler, listCommand);
+bot.use(startCommand, vetoHandler, listCommand);
 
 // Register group commands with main auth middleware
 bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);

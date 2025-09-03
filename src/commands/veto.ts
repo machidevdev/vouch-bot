@@ -11,6 +11,29 @@ export const vetoCommand = Composer.command('veto', dmAuthMiddleware(), async (c
     return;
   }
 
+  // Check if command has additional parameters (anything after /veto)
+  const messageText = ctx.message.text;
+  const hasAdditionalParams = messageText && messageText.trim().length > '/veto'.length;
+  
+  if (hasAdditionalParams) {
+    // User used command incorrectly (e.g., "/veto @username" or "/veto some text")
+    await ctx.reply(
+      `ℹ️ <b>How to Use the Veto Command</b>\n\n` +
+      `The <code>/veto</code> command starts an interactive process to report a user.\n\n` +
+      `<b>Just use:</b> <code>/veto</code>\n\n` +
+      `Click the button below to start the veto process:`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Start Veto Process', callback_data: 'veto_start_process' }]
+          ]
+        }
+      }
+    );
+    return;
+  }
+
   // Start new veto session
   sessionManager.startSession(userId);
   
