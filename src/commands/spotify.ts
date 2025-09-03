@@ -96,5 +96,5 @@ export const spotifyCommand = Composer.on(message('text'), async (ctx, next) => 
     }
     await ctx.reply('zzz... something did not happen.');
   }
-  await next();
+  // Don't call next() after processing Spotify link - stop middleware chain
 });

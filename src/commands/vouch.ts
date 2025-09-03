@@ -3,7 +3,7 @@ import { prisma, getProfileImage } from "../utils";
 import { formatVoteMessage } from "../utils";
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
-  console.log('Vouch command reached!', ctx.chat.id);
+  console.log('Vouch command handler reached!', ctx.chat.id);
   const userMessageId = ctx.message.message_id;
   const userChatId = ctx.chat.id;
   

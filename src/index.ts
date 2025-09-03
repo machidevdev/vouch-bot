@@ -32,20 +32,23 @@ bot.catch((err, ctx) => {
   }
 });
 
-// Register regular commands in order of specificity
-bot.command('vouch', vouchCommand);  // Register specific commands first
-bot.command('start', startCommand);
-bot.command('up', refreshCommand);  // Add the refresh command
-bot.command('veto', vetoCommand);
-bot.command('help', helpCommand);
-
-// Register message handlers that should work in group without auth
+// Register message handlers first (work in all chats)
 bot.use(topgolfCommand, spotifyCommand);
 
-bot.use(startCommand, vetoHandler, listCommand);
+// Register group-only commands (with auth middleware)
+bot.command('vouch', authMiddleware(), vouchCommand);
+bot.command('up', authMiddleware(), refreshCommand);
+
+// Register universal commands
+bot.command('start', startCommand);
+bot.command('help', helpCommand);
+
+// Register DM-only handlers
+bot.use(vetoHandler, listCommand, vetoCommand);
 bot.use(vetoCallbacks);
 
-bot.use(removeCommand, loggerMiddleware, authMiddleware(), editxCommand);
+// Register remaining middleware
+bot.use(removeCommand, loggerMiddleware, editxCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);

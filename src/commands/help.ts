@@ -11,9 +11,8 @@ export const helpCommand = Composer.command('help', async (ctx, next) => {
 • Reply with \`/x\` to your own vouch to delete it
 
 🔒 *Anonymous Feedback \\(DMs Only\\):*
-• \`/veto @username your feedback\` \\- Submit anonymous feedback
-• \`/veto username your feedback\` \\- Submit without @ symbol  
-• \`/veto https://x\\.com/username your feedback\` \\- Submit using profile URL
+
+• \`/veto\` \\- Submit using profile URL
 • \`/list\` \\- View all your submitted feedback
 • *Note:* Each user can only submit one feedback per target
 
