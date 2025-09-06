@@ -35,9 +35,11 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL!,
   allowedGroupId: environment === 'local' ? 'local' : process.env.ALLOWED_GROUP_ID!,
   threadId: process.env.THREAD_ID,
+  vouchThreadId: process.env.VOUCH_THREAD_ID,
   isProduction: environment === 'production',
   isStaging: environment === 'staging',
   isDevelopment: environment === 'local',
+  
 } as const;
 
 // Log the current environment (but not sensitive values)

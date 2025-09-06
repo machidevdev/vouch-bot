@@ -8,8 +8,19 @@ export interface VetoSession {
   createdAt: Date;
 }
 
+export interface VouchSession {
+  userId: number;
+  step: 'username' | 'description' | 'review';
+  targetUsername?: string;
+  description?: string;
+  messageIds?: number[];
+  createdAt: Date;
+  chatType?: 'group' | 'dm';
+}
+
 class SessionManager {
   private sessions: Map<number, VetoSession> = new Map();
+  private vouchSessions: Map<number, VouchSession> = new Map();
 
   startSession(userId: number): VetoSession {
     const session: VetoSession = {
@@ -53,12 +64,61 @@ class SessionManager {
     }
   }
 
+  // Vouch session methods
+  startVouchSession(userId: number, chatType: 'group' | 'dm'): VouchSession {
+    const session: VouchSession = {
+      userId,
+      step: 'username',
+      chatType,
+      createdAt: new Date()
+    };
+    this.vouchSessions.set(userId, session);
+    return session;
+  }
+
+  getVouchSession(userId: number): VouchSession | undefined {
+    return this.vouchSessions.get(userId);
+  }
+
+  updateVouchSession(userId: number, updates: Partial<VouchSession>): VouchSession | undefined {
+    const session = this.vouchSessions.get(userId);
+    if (!session) return undefined;
+    
+    const updatedSession = { ...session, ...updates };
+    this.vouchSessions.set(userId, updatedSession);
+    return updatedSession;
+  }
+
+  clearVouchSession(userId: number): void {
+    this.vouchSessions.delete(userId);
+  }
+
+  hasActiveVouchSession(userId: number): boolean {
+    return this.vouchSessions.has(userId);
+  }
+
+  addVouchMessageId(userId: number, messageId: number): void {
+    const session = this.vouchSessions.get(userId);
+    if (session) {
+      if (!session.messageIds) {
+        session.messageIds = [];
+      }
+      session.messageIds.push(messageId);
+      this.vouchSessions.set(userId, session);
+    }
+  }
+
   // Clean up old sessions (older than 30 minutes)
   cleanupOldSessions(): void {
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     for (const [userId, session] of this.sessions.entries()) {
       if (session.createdAt < thirtyMinutesAgo) {
         this.sessions.delete(userId);
+      }
+    }
+    for (const [userId, session] of this.vouchSessions.entries()) {
+      if (session.createdAt < thirtyMinutesAgo) {
+        this.vouchSessions.delete(userId);
       }
     }
   }

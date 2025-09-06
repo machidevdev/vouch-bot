@@ -1,21 +1,63 @@
 import { Composer } from "telegraf";
 import { prisma, getProfileImage } from "../utils";
 import { formatVoteMessage } from "../utils";
+import { sessionManager } from "../utils/sessionManager";
 
 export const vouchCommand = Composer.command('vouch', async (ctx) => {
   console.log('Vouch command handler reached!', ctx.chat.id);
+  const userId = ctx.from.id;
   const userMessageId = ctx.message.message_id;
   const userChatId = ctx.chat.id;
-  
   const messageText = ctx.message.text;
-  let username: string | null = null;
-  let description: string | null = null;
-
-  const parts = messageText.split(/\s+/);
-  if (parts.length < 2) {
-    await ctx.reply('Please provide a valid Twitter username or URL\nExample: /vouch @username [description] or /vouch https://x.com/username [description]');
+  const chatType = ctx.chat.type === 'private' ? 'dm' : 'group';
+  
+  // Check if user already has an active vouch session
+  if (sessionManager.hasActiveVouchSession(userId)) {
+    await ctx.reply('❌ You already have an active vouch process running. Please complete or cancel it first.');
     return;
   }
+
+  const parts = messageText.split(/\s+/);
+  
+  // If no parameters provided, start multi-step process
+  if (parts.length < 2) {
+    // Start new vouch session
+    sessionManager.startVouchSession(userId, chatType);
+    
+    const message = await ctx.reply(
+      `✨ <b>Vouch Process Started</b>\n\n` +
+      `<b>📝 Step 1 of 3: Target User</b>\n\n` +
+      `Please send the Twitter username or profile URL of the person you want to vouch for.\n\n` +
+      `<b>Accepted formats:</b>\n` +
+      `• @username\n` +
+      `• username\n` +
+      `• https://x.com/username`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: 'vouch_cancel' }]
+          ]
+        }
+      }
+    );
+    
+    // Track this message for cleanup
+    sessionManager.addVouchMessageId(userId, message.message_id);
+    
+    // Delete the user's command message
+    try {
+      await ctx.telegram.deleteMessage(userChatId, userMessageId);
+    } catch (error) {
+      console.error('Failed to delete user message:', error);
+    }
+    
+    return;
+  }
+
+  // Legacy single-command mode (when parameters are provided)
+  let username: string | null = null;
+  let description: string | null = null;
 
   // Check for Twitter URL
   const twitterUrlRegex = /(?:https?:\/\/)?(?:www\.)?x\.com\/([^\/\s\?]+)/;
