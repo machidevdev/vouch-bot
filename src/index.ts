@@ -1,4 +1,4 @@
-import { Composer, Context, Telegraf } from 'telegraf';
+import { Composer, Telegraf } from 'telegraf';
 import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
 import { config } from './config/env';
@@ -14,10 +14,15 @@ import { spotifyCommand } from './commands/spotify';
 import { topgolfCommand } from './commands/topgolf';
 import { refreshCommand } from './commands/refresh';
 import { editxCommand } from './commands/editx';
+import { vetoCommand } from './commands/veto';
+import { vetoHandler } from './commands/vetoHandler';
+import { vetoCallbacks } from './commands/vetoCallbacks';
+import { vetoVoteCommand } from './commands/vetoVote';
+import { listCommand } from './commands/list';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
-bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
 
+bot.use(Composer.acl([748045538, 6179266599, 6073481452, 820325877], adminComposer));
 
 bot.catch((err, ctx) => {
   try{
@@ -27,15 +32,27 @@ bot.catch((err, ctx) => {
   }
 });
 
-// Register regular commands in order of specificity
-bot.command('vouch', vouchCommand);  // Register specific commands first
+// Register message handlers first (work in all chats)
+bot.use(topgolfCommand, spotifyCommand);
+
+// Register group-only commands (with auth middleware)
+bot.command('vouch', authMiddleware(), vouchCommand);
+bot.command('up', authMiddleware(), refreshCommand);
+
+// Register universal commands
 bot.command('start', startCommand);
-bot.command('up', refreshCommand);  // Add the refresh command
+bot.command('help', helpCommand);
+
+// Register DM-only handlers
+bot.use(vetoHandler, listCommand, vetoCommand);
+bot.use(vetoCallbacks);
+
+// Register remaining middleware
+bot.use(removeCommand, loggerMiddleware, editxCommand);
 
 // Register action handlers (for inline buttons)
 bot.action(/^\/vote_(up|down)$/, voteCommand);
-
-bot.use(helpCommand,removeCommand, spotifyCommand, topgolfCommand, loggerMiddleware, authMiddleware(), editxCommand);
+bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
 
 
 

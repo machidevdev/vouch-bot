@@ -1,17 +1,17 @@
-name: Deploy to Production
+name: Deploy to Staging
 
 on:
   push:
     branches:
-      - main # Trigger on push to the 'production' branch
+      - staging # Trigger on push to the 'staging' branch
 
 jobs:
   deploy:
-    name: Apply Migrations to Production Database
+    name: Apply Migrations to Staging Database
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
 
     steps:
       # Step 1: Checkout the repository
@@ -29,13 +29,13 @@ jobs:
         run: |
           echo "Validating required environment variables..."
           if [ -z "$BOT_TOKEN" ]; then echo "Missing BOT_TOKEN"; exit 1; fi
-          if [ -z "$DATABASE_URL_PROD" ]; then echo "Missing DATABASE_URL_PROD"; exit 1; fi
+          if [ -z "$DATABASE_URL_STAGING" ]; then echo "Missing DATABASE_URL_STAGING"; exit 1; fi
           if [ -z "$ALLOWED_GROUP_ID" ]; then echo "Missing ALLOWED_GROUP_ID"; exit 1; fi
           if [ -z "$THREAD_ID" ]; then echo "Missing THREAD_ID"; exit 1; fi
           echo "All required environment variables are present"
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
+          DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
           ALLOWED_GROUP_ID: ${{ secrets.ALLOWED_GROUP_ID }}
           THREAD_ID: ${{ secrets.THREAD_ID }}
 
@@ -44,10 +44,10 @@ jobs:
         run: npm install
 
       # Step 5: Run Prisma Migrations
-      - name: Run Prisma Migrations on Production
+      - name: Run Prisma Migrations on Staging
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
 
       # Step 6: Verify Database State
       - name: Verify Prisma Schema
