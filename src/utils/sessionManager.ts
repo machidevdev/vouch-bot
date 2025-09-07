@@ -16,6 +16,7 @@ export interface VouchSession {
   messageIds?: number[];
   createdAt: Date;
   chatType?: 'group' | 'dm';
+  existingVoteId?: number;
 }
 
 class SessionManager {

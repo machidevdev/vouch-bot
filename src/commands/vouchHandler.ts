@@ -79,27 +79,11 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string) {
   }
 
   // Check if vouch already exists
+  let existingVote = null;
   try {
-    const existingVote = await prisma.vote.findFirst({
+    existingVote = await prisma.vote.findFirst({
       where: { twitterUsername: username }
     });
-
-    if (existingVote) {
-      await ctx.reply(
-        `❌ <b>Vouch Already Exists</b>\n\n` +
-        `A vouch for @${username} already exists. Each user can only have one vouch.`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔄 Try Different User', callback_data: 'vouch_retry_user' }],
-              [{ text: '❌ Cancel', callback_data: 'vouch_cancel' }]
-            ]
-          }
-        }
-      );
-      return;
-    }
   } catch (error) {
     console.error('Error checking existing vouch:', error);
     await ctx.reply('❌ Error checking existing vouches. Please try again.');
@@ -110,26 +94,61 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string) {
   try {
     const imageUrl = await getProfileImage(username);
     
-    // Show user confirmation with profile image
-    const message = await ctx.replyWithPhoto(imageUrl, {
-      caption: 
-        `✅ <b>User Found: @${username}</b>\n\n` +
-        `<b>💬 Step 2 of 3: Description (Optional)</b>\n\n` +
-        `Add a brief description explaining why you're vouching for this user, or skip to proceed without description.\n\n` +
-        `<i>Keep it concise and positive (max 500 characters).</i>`,
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '⏭️ Skip Description', callback_data: 'vouch_skip_description' }],
-          [{ text: '✏️ Edit User', callback_data: 'vouch_edit_user' }, { text: '❌ Cancel', callback_data: 'vouch_cancel' }]
-        ]
-      }
-    });
+    let message;
+    if (existingVote) {
+      // Existing vouch - show current status and allow adding to it
+      const currentUpvotes = existingVote.upvoterUsernames.length;
+      const currentDownvotes = existingVote.downvoterUsernames.length;
+      const existingDescriptions = existingVote.description ? [existingVote.description] : [];
+      
+      const previewCaption = formatVoteMessage(
+        username,
+        currentUpvotes,
+        currentDownvotes,
+        existingVote.createdBy,
+        existingVote.status,
+        existingVote.description || undefined
+      );
+      
+      message = await ctx.replyWithPhoto(imageUrl, {
+        caption: 
+          `🔄 <b>Existing Vouch Found: @${username}</b>\n\n` +
+          `<b>Current Status:</b>\n` +
+          `${previewCaption}\n\n` +
+          `<b>💬 Step 2 of 3: Add Your Support</b>\n\n` +
+          `This user has already been vouched for. You can add your support and optionally include additional description.\n\n` +
+          `<i>Add a description (max 500 characters) or skip to just add your upvote.</i>`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⏭️ Skip & Add Support', callback_data: 'vouch_skip_description' }],
+            [{ text: '✏️ Edit User', callback_data: 'vouch_edit_user' }, { text: '❌ Cancel', callback_data: 'vouch_cancel' }]
+          ]
+        }
+      });
+    } else {
+      // New vouch - standard flow
+      message = await ctx.replyWithPhoto(imageUrl, {
+        caption: 
+          `✅ <b>User Found: @${username}</b>\n\n` +
+          `<b>💬 Step 2 of 3: Description (Optional)</b>\n\n` +
+          `Add a brief description explaining why you're vouching for this user, or skip to proceed without description.\n\n` +
+          `<i>Keep it concise and positive (max 500 characters).</i>`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⏭️ Skip Description', callback_data: 'vouch_skip_description' }],
+            [{ text: '✏️ Edit User', callback_data: 'vouch_edit_user' }, { text: '❌ Cancel', callback_data: 'vouch_cancel' }]
+          ]
+        }
+      });
+    }
 
-    // Update session
+    // Update session with existing vote info
     sessionManager.updateVouchSession(userId, { 
       targetUsername: username, 
-      step: 'description' 
+      step: 'description',
+      existingVoteId: existingVote?.id
     });
     
     // Track message for cleanup
@@ -236,6 +255,7 @@ async function showVouchPreview(ctx: any, session: any) {
 export async function finalizeVouch(ctx: any, session: any) {
   const userId = ctx.from.id;
   const chatType = session.chatType;
+  const currentUser = ctx.from.username || ctx.from.id.toString();
   
   console.log('finalizeVouch called - session:', JSON.stringify(session));
   console.log('chatType:', chatType, 'userId:', userId);
@@ -251,51 +271,141 @@ export async function finalizeVouch(ctx: any, session: any) {
     
     console.log('Posting vouch to group:', targetChatId, 'thread:', threadId);
 
-    console.log('Creating vouch message...');
-    // Create the vouch message in the designated thread
-    const sendOptions: any = {
-      caption: formatVoteMessage(
-        session.targetUsername,
-        1,
-        0,
-        ctx.from.username || ctx.from.id.toString(),
-        'pending',
-        session.description
-      ),
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: `✅ (1)`, callback_data: '/vote_up' },
-          { text: `❌ (0)`, callback_data: '/vote_down' }
-        ]]
+    if (session.existingVoteId) {
+      // Existing vouch - update it
+      console.log('Updating existing vouch with ID:', session.existingVoteId);
+      
+      const existingVote = await prisma.vote.findUnique({
+        where: { id: session.existingVoteId }
+      });
+      
+      if (!existingVote) {
+        throw new Error('Existing vote not found');
       }
-    };
+      
+      // Add current user to upvoters if not already there
+      const updatedUpvoters = existingVote.upvoterUsernames.includes(currentUser) 
+        ? existingVote.upvoterUsernames 
+        : [...existingVote.upvoterUsernames, currentUser];
+      
+      // Merge descriptions
+      let mergedDescription = existingVote.description || '';
+      if (session.description && session.description.trim()) {
+        if (mergedDescription) {
+          // If there's existing description, add the new one with proper formatting
+          mergedDescription = `${mergedDescription}\n\n${session.description}`;
+        } else {
+          // If no existing description, just use the new one
+          mergedDescription = session.description;
+        }
+      }
+      
+      // Update the database
+      const updatedVote = await prisma.vote.update({
+        where: { id: session.existingVoteId },
+        data: {
+          upvoterUsernames: updatedUpvoters,
+          description: mergedDescription
+        }
+      });
+      
+      console.log('Database update successful');
+      
+      // Delete old message if possible
+      try {
+        await ctx.telegram.deleteMessage(
+          Number(existingVote.chatId), 
+          Number(existingVote.messageId)
+        );
+        console.log('Old message deleted successfully');
+      } catch (deleteError) {
+        console.log('Could not delete old message (continuing anyway):', deleteError instanceof Error ? deleteError.message : String(deleteError));
+      }
+      
+      // Create updated message
+      console.log('Creating updated vouch message...');
+      const sendOptions: any = {
+        caption: formatVoteMessage(
+          session.targetUsername,
+          updatedUpvoters.length,
+          existingVote.downvoterUsernames.length,
+          existingVote.createdBy,
+          existingVote.status,
+          mergedDescription
+        ),
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ (${updatedUpvoters.length})`, callback_data: '/vote_up' },
+            { text: `❌ (${existingVote.downvoterUsernames.length})`, callback_data: '/vote_down' }
+          ]]
+        }
+      };
 
-    // Add thread ID if specified
-    if (threadId) {
-      sendOptions.message_thread_id = parseInt(threadId);
+      // Add thread ID if specified
+      if (threadId) {
+        sendOptions.message_thread_id = parseInt(threadId);
+      }
+
+      const vouchMessage = await ctx.telegram.sendPhoto(targetChatId, imageUrl, sendOptions);
+      
+      // Update message ID in database
+      await prisma.vote.update({
+        where: { id: session.existingVoteId },
+        data: {
+          messageId: BigInt(vouchMessage.message_id)
+        }
+      });
+      
+      console.log('Updated vouch message created with ID:', vouchMessage.message_id);
+      
+    } else {
+      // New vouch
+      console.log('Creating new vouch message...');
+      const sendOptions: any = {
+        caption: formatVoteMessage(
+          session.targetUsername,
+          1,
+          0,
+          currentUser,
+          'pending',
+          session.description
+        ),
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ (1)`, callback_data: '/vote_up' },
+            { text: `❌ (0)`, callback_data: '/vote_down' }
+          ]]
+        }
+      };
+
+      // Add thread ID if specified
+      if (threadId) {
+        sendOptions.message_thread_id = parseInt(threadId);
+      }
+
+      const vouchMessage = await ctx.telegram.sendPhoto(targetChatId, imageUrl, sendOptions);
+
+      console.log('Vouch message created with ID:', vouchMessage.message_id);
+      
+      // Save new vouch to database
+      console.log('Saving new vouch to database...');
+      await prisma.vote.create({
+        data: {
+          twitterUsername: session.targetUsername,
+          messageId: BigInt(vouchMessage.message_id),
+          chatId: BigInt(targetChatId),
+          upvoterUsernames: [currentUser],
+          downvoterUsernames: [],
+          createdBy: currentUser,
+          status: 'pending',
+          description: session.description
+        }
+      });
+      
+      console.log('Database save successful');
     }
-
-    const vouchMessage = await ctx.telegram.sendPhoto(targetChatId, imageUrl, sendOptions);
-
-    console.log('Vouch message created with ID:', vouchMessage.message_id);
-    
-    // Save to database
-    console.log('Saving to database...');
-    await prisma.vote.create({
-      data: {
-        twitterUsername: session.targetUsername,
-        messageId: BigInt(vouchMessage.message_id),
-        chatId: BigInt(targetChatId),
-        upvoterUsernames: [ctx.from.username || ctx.from.id.toString()],
-        downvoterUsernames: [],
-        createdBy: ctx.from.username || ctx.from.id.toString(),
-        status: 'pending',
-        description: session.description
-      }
-    });
-    
-    console.log('Database save successful');
     
     // Show success message first (before cleanup)
     try {
