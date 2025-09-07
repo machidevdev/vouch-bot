@@ -2,7 +2,7 @@ import { Composer } from "telegraf";
 import { sessionManager } from "../utils/sessionManager";
 import { finalizeVouch } from "./vouchHandler";
 
-export const vouchCallbacks = Composer.on('callback_query', async (ctx) => {
+export const vouchCallbacks = Composer.on('callback_query', async (ctx, next) => {
   const userId = ctx.from.id;
   const session = sessionManager.getVouchSession(userId);
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -12,7 +12,7 @@ export const vouchCallbacks = Composer.on('callback_query', async (ctx) => {
   // Only handle vouch-related callbacks
   if (!data?.startsWith('vouch_')) {
     console.log(`Not a vouch callback, skipping`);
-    return;
+    return next();
   }
 
   console.log(`Vouch callback: ${data} for user ${userId}, session exists: ${!!session}`);

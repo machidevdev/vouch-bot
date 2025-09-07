@@ -1,7 +1,7 @@
 import { Composer } from "telegraf";
 import { sessionManager } from "../utils/sessionManager";
 
-export const vetoCallbacks = Composer.on('callback_query', async (ctx) => {
+export const vetoCallbacks = Composer.on('callback_query', async (ctx, next) => {
   const userId = ctx.from.id;
   const session = sessionManager.getSession(userId);
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -13,7 +13,7 @@ export const vetoCallbacks = Composer.on('callback_query', async (ctx) => {
   }
   
   if (!session || !data?.startsWith('veto_')) {
-    return;
+    return next();
   }
 
   await ctx.answerCbQuery();
