@@ -114,11 +114,13 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string) {
         const currentUpvotes = existingVote.upvoterUsernames.length;
         const currentDownvotes = existingVote.downvoterUsernames.length;
         
+        const existingVouchers = existingVote.voucherUsernames || [existingVote.createdBy];
+        
         const previewCaption = formatVoteMessage(
           username,
           currentUpvotes,
           currentDownvotes,
-          existingVote.createdBy,
+          existingVouchers,
           existingVote.status,
           existingVote.description || undefined
         );
@@ -277,11 +279,29 @@ export async function showVouchPreview(ctx: any, session: any) {
     const imageUrl = await getProfileImage(session.targetUsername);
     
     // Create preview of how the vouch will look
+    const currentUser = ctx.from.username || ctx.from.id.toString();
+    let previewVouchers = [currentUser];
+    
+    // If adding to existing vouch, include existing vouchers
+    if (session.existingVoteId) {
+      const existingVote = await prisma.vote.findUnique({
+        where: { id: session.existingVoteId }
+      });
+      if (existingVote) {
+        const existingVouchers = existingVote.voucherUsernames || [existingVote.createdBy];
+        if (!existingVouchers.includes(currentUser)) {
+          previewVouchers = [...existingVouchers, currentUser];
+        } else {
+          previewVouchers = existingVouchers;
+        }
+      }
+    }
+    
     const previewCaption = formatVoteMessage(
       session.targetUsername,
       1, // Will have 1 upvote (from creator)
       0, // No downvotes initially
-      ctx.from.username || ctx.from.id.toString(),
+      previewVouchers,
       'pending',
       session.description
     ) + '\n\n🔍 <b>PREVIEW - This is how your vouch will appear</b>';
@@ -395,6 +415,12 @@ export async function finalizeVouch(ctx: any, session: any) {
         ? existingVote.upvoterUsernames 
         : [...existingVote.upvoterUsernames, currentUser];
       
+      // Add current user to vouchers if not already there
+      const existingVouchers = existingVote.voucherUsernames || [existingVote.createdBy];
+      const updatedVouchers = existingVouchers.includes(currentUser)
+        ? existingVouchers
+        : [...existingVouchers, currentUser];
+      
       // Merge descriptions
       let mergedDescription = existingVote.description || '';
       if (session.description && session.description.trim()) {
@@ -411,6 +437,7 @@ export async function finalizeVouch(ctx: any, session: any) {
       const updatedVote = await prisma.vote.update({
         where: { id: session.existingVoteId },
         data: {
+          voucherUsernames: updatedVouchers,
           upvoterUsernames: updatedUpvoters,
           description: mergedDescription
         }
@@ -436,7 +463,7 @@ export async function finalizeVouch(ctx: any, session: any) {
           session.targetUsername,
           updatedUpvoters.length,
           existingVote.downvoterUsernames.length,
-          existingVote.createdBy,
+          updatedVouchers,
           existingVote.status,
           mergedDescription
         ),
@@ -474,7 +501,7 @@ export async function finalizeVouch(ctx: any, session: any) {
           session.targetUsername,
           1,
           0,
-          currentUser,
+          [currentUser],
           'pending',
           session.description
         ),
@@ -503,6 +530,7 @@ export async function finalizeVouch(ctx: any, session: any) {
           twitterUsername: session.targetUsername,
           messageId: BigInt(vouchMessage.message_id),
           chatId: BigInt(targetChatId),
+          voucherUsernames: [currentUser],
           upvoterUsernames: [currentUser],
           downvoterUsernames: [],
           createdBy: currentUser,

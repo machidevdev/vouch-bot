@@ -108,7 +108,7 @@ export const editxCommand = Composer.command('editx', async (ctx, next) => {
         newUsername,
         existingVote.upvoterUsernames.length,
         existingVote.downvoterUsernames.length,
-        existingVote.createdBy,
+        existingVote.voucherUsernames || [existingVote.createdBy],
         existingVote.status,
         existingVote.description || ''
       ),

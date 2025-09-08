@@ -125,7 +125,7 @@ adminComposer.command('update', async (ctx) => {
                 vote.twitterUsername,
                 vote.upvoterUsernames.length,
                 vote.downvoterUsernames.length,
-                vote.createdBy,
+                vote.voucherUsernames || [vote.createdBy],
                 newStatus,
                 vote.description ?? ''
               ),
