@@ -19,16 +19,16 @@ model Vote {
   status             String   @default("pending")
   messageId          BigInt
   chatId             BigInt
-  description        String? @db.Text
+  description        String?
 
   @@unique([messageId, chatId])
 }
 
 model Settings {
-  id              Int      @id @default(autoincrement())
-  requiredUpvotes Int      @default(15)
-  requiredDownvotes Int    @default(3)
-  updatedAt       DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  requiredUpvotes   Int      @default(15)
+  requiredDownvotes Int      @default(3)
+  updatedAt         DateTime @updatedAt
 }
 
 model Feedback {
@@ -42,6 +42,6 @@ model Feedback {
   downvoterUsernames String[] @default([])
   messageId          BigInt?
   chatId             BigInt?
-  
+
   @@unique([messageId, chatId])
 }
