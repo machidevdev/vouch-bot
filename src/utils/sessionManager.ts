@@ -14,6 +14,7 @@ export interface VouchSession {
   targetUsername?: string;
   description?: string;
   messageIds?: number[];
+  mainMessageId?: number; // The main message that gets edited throughout the process
   createdAt: Date;
   chatType?: 'group' | 'dm';
   existingVoteId?: number;
@@ -105,6 +106,14 @@ class SessionManager {
         session.messageIds = [];
       }
       session.messageIds.push(messageId);
+      this.vouchSessions.set(userId, session);
+    }
+  }
+
+  setVouchMainMessageId(userId: number, messageId: number): void {
+    const session = this.vouchSessions.get(userId);
+    if (session) {
+      session.mainMessageId = messageId;
       this.vouchSessions.set(userId, session);
     }
   }

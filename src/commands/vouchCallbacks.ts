@@ -1,6 +1,6 @@
 import { Composer } from "telegraf";
 import { sessionManager } from "../utils/sessionManager";
-import { finalizeVouch } from "./vouchHandler";
+import { finalizeVouch, showVouchPreview } from "./vouchHandler";
 
 export const vouchCallbacks = Composer.on('callback_query', async (ctx, next) => {
   const userId = ctx.from.id;
@@ -58,41 +58,28 @@ async function handleCancel(ctx: any, session: any) {
     return;
   }
 
-  // Delete tracked messages
-  if (session.messageIds && session.messageIds.length > 0) {
-    for (const messageId of session.messageIds) {
-      try {
-        await ctx.telegram.deleteMessage(ctx.chat.id, messageId);
-      } catch (error) {
-        console.log(`Could not delete message ${messageId}:`, error);
-      }
-    }
-  }
-  
-  // Try to edit/delete the current message
-  try {
-    await ctx.editMessageText('❌ Vouch process cancelled.');
-    // Auto-delete after 2 seconds
-    setTimeout(async () => {
-      try {
-        await ctx.deleteMessage();
-      } catch (error) {
-        console.log('Could not delete cancel message:', error);
-      }
-    }, 2000);
-  } catch {
+  // Edit the main message to show cancellation
+  if (session.mainMessageId) {
     try {
-      await ctx.editMessageCaption('❌ Vouch process cancelled.');
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        session.mainMessageId,
+        undefined,
+        '❌ Vouch process cancelled.',
+        { parse_mode: 'HTML' }
+      );
+      
       // Auto-delete after 2 seconds
       setTimeout(async () => {
         try {
-          await ctx.deleteMessage();
+          await ctx.telegram.deleteMessage(ctx.chat.id, session.mainMessageId);
         } catch (error) {
           console.log('Could not delete cancel message:', error);
         }
       }, 2000);
-    } catch {
-      // If we can't edit, send a new message that will auto-delete
+    } catch (error) {
+      console.error('Failed to edit cancel message:', error);
+      // Fallback to reply if editing fails
       const cancelMessage = await ctx.reply('❌ Vouch process cancelled.');
       setTimeout(async () => {
         try {
@@ -121,27 +108,13 @@ async function handleRetryUser(ctx: any, session: any) {
     description: undefined 
   });
   
-  try {
-    await ctx.editMessageCaption(
-      `✨ <b>Vouch Process</b>\n\n` +
-      `<b>📝 Step 1 of 3: Target User</b>\n\n` +
-      `Please send the Twitter username or profile URL of the person you want to vouch for.\n\n` +
-      `<b>Accepted formats:</b>\n` +
-      `• @username\n` +
-      `• username\n` +
-      `• https://x.com/username`,
-      { 
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '❌ Cancel', callback_data: 'vouch_cancel' }]
-          ]
-        }
-      }
-    );
-  } catch {
+  // Edit the main message to go back to step 1
+  if (session.mainMessageId) {
     try {
-      await ctx.editMessageText(
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        session.mainMessageId,
+        undefined,
         `✨ <b>Vouch Process</b>\n\n` +
         `<b>📝 Step 1 of 3: Target User</b>\n\n` +
         `Please send the Twitter username or profile URL of the person you want to vouch for.\n\n` +
@@ -158,8 +131,9 @@ async function handleRetryUser(ctx: any, session: any) {
           }
         }
       );
-    } catch {
-      // Fallback: send new message
+    } catch (error) {
+      console.error('Failed to edit message for retry:', error);
+      // Fallback: send new message and update main message ID
       const message = await ctx.reply(
         `✨ <b>Vouch Process</b>\n\n` +
         `<b>📝 Step 1 of 3: Target User</b>\n\n` +
@@ -178,7 +152,7 @@ async function handleRetryUser(ctx: any, session: any) {
         }
       );
       
-      sessionManager.addVouchMessageId(ctx.from.id, message.message_id);
+      sessionManager.setVouchMainMessageId(ctx.from.id, message.message_id);
     }
   }
 }
@@ -225,7 +199,19 @@ async function handleSkipDescription(ctx: any, session: any) {
 
 async function handleEditDescription(ctx: any, session: any) {
   if (!session || !session.targetUsername) {
-    await ctx.editMessageCaption('❌ No active vouch process found.');
+    if (session?.mainMessageId) {
+      try {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id,
+          session.mainMessageId,
+          undefined,
+          '❌ No active vouch process found.',
+          { parse_mode: 'HTML' }
+        );
+      } catch (error) {
+        await ctx.reply('❌ No active vouch process found.');
+      }
+    }
     return;
   }
 
@@ -235,63 +221,30 @@ async function handleEditDescription(ctx: any, session: any) {
     description: undefined 
   });
 
-  try {
-    await ctx.editMessageCaption(
-      `✅ <b>User: @${session.targetUsername}</b>\n\n` +
-      `<b>💬 Step 2 of 3: Description (Optional)</b>\n\n` +
-      `Add a brief description explaining why you're vouching for this user, or skip to proceed without description.\n\n` +
-      `<i>Keep it concise and positive (max 500 characters).</i>`,
-      {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '⏭️ Skip Description', callback_data: 'vouch_skip_description' }],
-            [{ text: '✏️ Edit User', callback_data: 'vouch_edit_user' }, { text: '❌ Cancel', callback_data: 'vouch_cancel' }]
-          ]
+  // Edit the main message to show the description step
+  if (session.mainMessageId) {
+    try {
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        session.mainMessageId,
+        undefined,
+        `✅ <b>User: @${session.targetUsername}</b>\n\n` +
+        `<b>💬 Step 2 of 3: Description (Optional)</b>\n\n` +
+        `Add a brief description explaining why you're vouching for this user, or skip to proceed without description.\n\n` +
+        `<i>Keep it concise and positive (max 500 characters).</i>`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ Skip Description', callback_data: 'vouch_skip_description' }],
+              [{ text: '✏️ Edit User', callback_data: 'vouch_edit_user' }, { text: '❌ Cancel', callback_data: 'vouch_cancel' }]
+            ]
+          }
         }
-      }
-    );
-  } catch (error) {
-    console.error('Error editing description step:', error);
-    await ctx.reply('❌ Error. Please try again.');
-  }
-}
-
-async function showVouchPreview(ctx: any, session: any) {
-  const { getProfileImage, formatVoteMessage } = await import('../utils');
-  
-  try {
-    const imageUrl = await getProfileImage(session.targetUsername);
-    
-    // Create preview of how the vouch will look
-    const previewCaption = formatVoteMessage(
-      session.targetUsername,
-      1, // Will have 1 upvote (from creator)
-      0, // No downvotes initially
-      ctx.from.username || ctx.from.id.toString(),
-      'pending',
-      session.description
-    ) + '\n\n🔍 <b>PREVIEW - This is how your vouch will appear</b>';
-
-    const finalCaption = previewCaption + '\n\n<b>📋 Review Your Vouch</b>\n<b>⚠️ This action is irreversible once submitted.</b>\n\nWhat would you like to do?';
-    
-    await ctx.editMessageMedia({
-      type: 'photo',
-      media: imageUrl,
-      caption: finalCaption,
-      parse_mode: 'HTML'
-    }, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✅ Submit Vouch', callback_data: 'vouch_final_submit' }],
-          [{ text: '✏️ Edit Description', callback_data: 'vouch_edit_description' }],
-          [{ text: '❌ Cancel', callback_data: 'vouch_cancel' }]
-        ]
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error showing vouch preview:', error);
-    await ctx.reply('❌ Error showing preview. Please try again.');
+      );
+    } catch (error) {
+      console.error('Error editing description step:', error);
+      await ctx.reply('❌ Error. Please try again.');
+    }
   }
 }

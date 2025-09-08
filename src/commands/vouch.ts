@@ -42,8 +42,8 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
       }
     );
     
-    // Track this message for cleanup
-    sessionManager.addVouchMessageId(userId, message.message_id);
+    // Set this as the main message that will be edited throughout the process
+    sessionManager.setVouchMainMessageId(userId, message.message_id);
     
     // Delete the user's command message
     try {
