@@ -44,11 +44,11 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string) {
   const urlMatch = messageText.match(twitterUrlRegex);
   
   if (urlMatch) {
-    username = urlMatch[1].split('?')[0];
+    username = urlMatch[1].split('?')[0].toLowerCase();
   } else {
     const usernameMatch = messageText.match(/@?([a-zA-Z0-9_]+)/);
     if (usernameMatch) {
-      username = usernameMatch[1];
+      username = usernameMatch[1].toLowerCase();
     }
   }
 
@@ -94,7 +94,7 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string) {
   let existingVote = null;
   try {
     existingVote = await prisma.vote.findFirst({
-      where: { twitterUsername: username }
+      where: { twitterUsername: { equals: username, mode: 'insensitive' } }
     });
   } catch (error) {
     console.error('Error checking existing vouch:', error);

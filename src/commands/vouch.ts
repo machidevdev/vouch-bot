@@ -64,13 +64,13 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   const urlMatch = parts[1].match(twitterUrlRegex);
   console.log("Fetching username from URL:", urlMatch);
   if (urlMatch) {
-    username = urlMatch[1].split('?')[0];
+    username = urlMatch[1].split('?')[0].toLowerCase();
     description = parts.slice(2).join(' ') || null;
   } else {
     // Check for username format (with @), preserving underscores
     const usernameMatch = parts[1].match(/@?([a-zA-Z0-9_]+)/);
     if (usernameMatch) {
-      username = usernameMatch[1];
+      username = usernameMatch[1].toLowerCase();
       description = parts.slice(2).join(' ') || null;
     }
   }
@@ -88,7 +88,7 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   try {
     const existingVote = await prisma.vote.findFirst({
       where: {
-        twitterUsername: username
+        twitterUsername: { equals: username, mode: 'insensitive' }
       }
     });
 
