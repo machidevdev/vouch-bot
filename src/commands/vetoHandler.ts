@@ -308,8 +308,8 @@ export async function finalizeVeto(ctx: any, session: any) {
 
       const replyMarkup = {
         inline_keyboard: [[
-          { text: `✅ Agree (${vetoRecord.upvoterUsernames.length})`, callback_data: '/veto_up' },
-          { text: `❌ Disagree (${vetoRecord.downvoterUsernames.length})`, callback_data: '/veto_down' }
+          { text: `👢 Kick (${vetoRecord.upvoterUsernames.length})`, callback_data: '/veto_up' },
+          { text: `✅ Keep (${vetoRecord.downvoterUsernames.length})`, callback_data: '/veto_down' }
         ]]
       };
 
