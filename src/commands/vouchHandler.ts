@@ -542,45 +542,14 @@ export async function finalizeVouch(ctx: any, session: any) {
       console.log('Database save successful');
     }
     
-    // Show success message by editing the main message
+    // Delete the review message immediately after successful vouch submission
     if (session.mainMessageId) {
-      const messageIdToDelete = session.mainMessageId; // Store in local variable
       try {
-        await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          session.mainMessageId,
-          undefined,
-          `✅ <b>Vouch Successfully Created!</b>\n\n` +
-          `Your vouch for @${session.targetUsername} has been posted to the group.`,
-          { parse_mode: 'HTML' }
-        );
-
-        // Auto-delete success message after 5 seconds
-        setTimeout(async () => {
-          try {
-            console.log('Attempting to delete review message with ID:', messageIdToDelete);
-            await ctx.telegram.deleteMessage(ctx.chat.id, messageIdToDelete);
-            console.log('Successfully deleted review message');
-          } catch (error) {
-            console.log('Could not delete review message:', error);
-          }
-        }, 5000);
-      } catch (editError) {
-        console.log('Could not edit message with success, sending new message:', editError);
-        const successMsg = await ctx.reply(
-          `✅ <b>Vouch Successfully Created!</b>\n\n` +
-          `Your vouch for @${session.targetUsername} has been posted to the group.`,
-          { parse_mode: 'HTML' }
-        );
-        
-        // Auto-delete after 5 seconds
-        setTimeout(async () => {
-          try {
-            await ctx.telegram.deleteMessage(ctx.chat.id, successMsg.message_id);
-          } catch (error) {
-            console.log('Could not delete success message:', error);
-          }
-        }, 5000);
+        console.log('Attempting to delete review message with ID:', session.mainMessageId);
+        await ctx.telegram.deleteMessage(ctx.chat.id, session.mainMessageId);
+        console.log('Successfully deleted review message');
+      } catch (error) {
+        console.log('Could not delete review message:', error);
       }
     }
 
