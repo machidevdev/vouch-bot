@@ -12,12 +12,14 @@ async function updateVoteMessage(ctx: Context, voteId: number) {
 
   if (!vote || !ctx.callbackQuery?.message) return;
 
+  const vouchers = vote.voucherUsernames || [vote.createdBy];
+  
   await ctx.editMessageCaption(
     formatVoteMessage(
       vote.twitterUsername,
       vote.upvoterUsernames.length,
       vote.downvoterUsernames.length,
-      vote.createdBy,
+      vouchers,
       vote.status,
       vote.description ?? ''
     ),
@@ -120,12 +122,14 @@ export const voteCommand = Composer.action(/^\/vote_(up|down)$/, async (ctx) => 
     });
 
     // Update message with new vote counts and status
+    const updatedVouchers = updatedVote.voucherUsernames || [updatedVote.createdBy];
+    
     await ctx.editMessageCaption(
       formatVoteMessage(
         updatedVote.twitterUsername,
         newUpvoters.length,
         newDownvoters.length,
-        updatedVote.createdBy,
+        updatedVouchers,
         newStatus,
         updatedVote.description ?? ''
       ),

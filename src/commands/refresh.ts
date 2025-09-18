@@ -88,7 +88,7 @@ export const refreshCommand = Composer.command('up', async (ctx) => {
         twitterUsername,
         upvoterUsernames.length,
         downvoterUsernames.length,
-        existingVote.createdBy,
+        existingVote.voucherUsernames || [existingVote.createdBy],
         status,
         description || ''
       ),

@@ -104,7 +104,7 @@ export const hashUserId = (userId: string): string => {
   return crypto.createHash('sha256').update(userId).digest('hex');
 };
 
-export const formatVoteMessage = (twitterUsername: string, upvotes: number, downvotes: number, createdBy: string, status: string, description?: string): string => {
+export const formatVoteMessage = (twitterUsername: string, upvotes: number, downvotes: number, vouchersList: string[], status: string, description?: string): string => {
   let statusMessage = '';
   
   switch (status) {
@@ -120,9 +120,17 @@ export const formatVoteMessage = (twitterUsername: string, upvotes: number, down
 
   const descriptionText = description ? `\n\n<b>Description:</b>\n${description}` : '';
 
+  // Format vouchers list
+  let vouchersText = '';
+  if (vouchersList.length === 1) {
+    vouchersText = `Vouched by: @${vouchersList[0]}`;
+  } else {
+    vouchersText = `Vouched by:\n${vouchersList.map(voucher => `• @${voucher}`).join('\n')}`;
+  }
+
   return `
 Voting for: <a href="https://x.com/${twitterUsername}">@${twitterUsername}</a>
-Vouched by: @${createdBy}${descriptionText}
+${vouchersText}${descriptionText}
 
 <b>Current votes:</b>
 ✅: <b>${upvotes}</b>

@@ -1,6 +1,7 @@
 import { Composer, Telegraf } from 'telegraf';
 import { loggerMiddleware } from './middleware/logger';
 import { authMiddleware } from './middleware/auth';
+import { hybridAuthMiddleware } from './middleware/hybridAuth';
 import { config } from './config/env';
 import { vouchCommand } from './commands/vouch';
 import { removeCommand } from './commands/remove';
@@ -19,6 +20,8 @@ import { vetoHandler } from './commands/vetoHandler';
 import { vetoCallbacks } from './commands/vetoCallbacks';
 import { vetoVoteCommand } from './commands/vetoVote';
 import { listCommand } from './commands/list';
+import { vouchHandler } from './commands/vouchHandler';
+import { vouchCallbacks } from './commands/vouchCallbacks';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 
@@ -36,16 +39,22 @@ bot.catch((err, ctx) => {
 bot.use(topgolfCommand, spotifyCommand);
 
 // Register group-only commands (with auth middleware)
-bot.command('vouch', authMiddleware(), vouchCommand);
+bot.command('vouch', hybridAuthMiddleware(), vouchCommand);
 bot.command('up', authMiddleware(), refreshCommand);
 
 // Register universal commands
 bot.command('start', startCommand);
 bot.command('help', helpCommand);
 
+// Register callback handlers first (before other middleware)
+bot.use(vouchCallbacks);
+bot.use(vetoCallbacks);
+
 // Register DM-only handlers
 bot.use(vetoHandler, listCommand, vetoCommand);
-bot.use(vetoCallbacks);
+
+// Register vouch handlers (work in both DMs and groups)
+bot.use(vouchHandler);
 
 // Register remaining middleware
 bot.use(removeCommand, loggerMiddleware, editxCommand);

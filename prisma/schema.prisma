@@ -12,22 +12,23 @@ model Vote {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   createdBy          String
+  voucherUsernames   String[] @default([]) // List of all users who vouched
   upvoterUsernames   String[] @default([])
   downvoterUsernames String[] @default([])
   twitterUsername    String
   status             String   @default("pending")
   messageId          BigInt
   chatId             BigInt
-  description        String? @db.Text
+  description        String?
 
   @@unique([messageId, chatId])
 }
 
 model Settings {
-  id              Int      @id @default(autoincrement())
-  requiredUpvotes Int      @default(15)
-  requiredDownvotes Int    @default(3)
-  updatedAt       DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  requiredUpvotes   Int      @default(15)
+  requiredDownvotes Int      @default(3)
+  updatedAt         DateTime @updatedAt
 }
 
 model Feedback {
@@ -41,6 +42,6 @@ model Feedback {
   downvoterUsernames String[] @default([])
   messageId          BigInt?
   chatId             BigInt?
-  
+
   @@unique([messageId, chatId])
 }

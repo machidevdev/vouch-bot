@@ -56,12 +56,12 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string | 
   const urlMatch = messageText.match(twitterUrlRegex);
   
   if (urlMatch) {
-    targetUsername = urlMatch[1].split('?')[0];
+    targetUsername = urlMatch[1].split('?')[0].toLowerCase();
   } else {
     // Check for username format (with or without @)
     const usernameMatch = messageText.match(/@?([a-zA-Z0-9_]+)/);
     if (usernameMatch) {
-      targetUsername = usernameMatch[1];
+      targetUsername = usernameMatch[1].toLowerCase();
     }
   }
 
@@ -74,7 +74,7 @@ async function handleUsernameStep(ctx: any, session: any, messageText: string | 
   const hashedUserId = hashUserId(ctx.from.id.toString());
   const existingVeto = await prisma.feedback.findFirst({
     where: {
-      targetUsername: targetUsername,
+      targetUsername: { equals: targetUsername, mode: 'insensitive' },
       submittedBy: { has: hashedUserId }
     }
   });
@@ -254,7 +254,7 @@ export async function finalizeVeto(ctx: any, session: any) {
     
     // Check for existing veto for this username
     const existingVeto = await prisma.feedback.findFirst({
-      where: { targetUsername: session.targetUsername }
+      where: { targetUsername: { equals: session.targetUsername, mode: 'insensitive' } }
     });
 
     let vetoRecord;
