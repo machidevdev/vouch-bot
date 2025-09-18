@@ -18,7 +18,19 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
   }
 
   const parts = messageText.split(/\s+/);
-  
+
+  // If parameters provided in DM, show updated message
+  if (parts.length >= 2 && chatType === 'dm') {
+    await ctx.reply(
+      `ℹ️ <b>Vouch Command Updated</b>\n\n` +
+      `The vouch command has been updated for DMs. You can now use the interactive process by simply typing:\n\n` +
+      `<code>/vouch</code>\n\n` +
+      `This will guide you through the vouching process step by step.`,
+      { parse_mode: 'HTML' }
+    );
+    return;
+  }
+
   // If no parameters provided, start multi-step process
   if (parts.length < 2) {
     // Start new vouch session
