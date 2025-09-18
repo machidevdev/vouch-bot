@@ -544,6 +544,7 @@ export async function finalizeVouch(ctx: any, session: any) {
     
     // Show success message by editing the main message
     if (session.mainMessageId) {
+      const messageIdToDelete = session.mainMessageId; // Store in local variable
       try {
         await ctx.telegram.editMessageText(
           ctx.chat.id,
@@ -557,9 +558,11 @@ export async function finalizeVouch(ctx: any, session: any) {
         // Auto-delete success message after 5 seconds
         setTimeout(async () => {
           try {
-            await ctx.telegram.deleteMessage(ctx.chat.id, session.mainMessageId);
+            console.log('Attempting to delete review message with ID:', messageIdToDelete);
+            await ctx.telegram.deleteMessage(ctx.chat.id, messageIdToDelete);
+            console.log('Successfully deleted review message');
           } catch (error) {
-            console.log('Could not delete success message:', error);
+            console.log('Could not delete review message:', error);
           }
         }, 5000);
       } catch (editError) {
