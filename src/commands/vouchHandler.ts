@@ -553,6 +553,26 @@ export async function finalizeVouch(ctx: any, session: any) {
       }
     }
 
+    // Show success message as a new message that auto-deletes
+    try {
+      const successMsg = await ctx.reply(
+        `✅ <b>Vouch Successfully Created!</b>\n\n` +
+        `Your vouch for @${session.targetUsername} has been posted to the group.`,
+        { parse_mode: 'HTML' }
+      );
+
+      // Auto-delete success message after 5 seconds
+      setTimeout(async () => {
+        try {
+          await ctx.telegram.deleteMessage(ctx.chat.id, successMsg.message_id);
+        } catch (error) {
+          console.log('Could not delete success message:', error);
+        }
+      }, 5000);
+    } catch (error) {
+      console.log('Could not send success message:', error);
+    }
+
     // Clear session
     sessionManager.clearVouchSession(userId);
 
