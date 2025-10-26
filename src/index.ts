@@ -22,6 +22,7 @@ import { vetoVoteCommand } from './commands/vetoVote';
 import { listCommand } from './commands/list';
 import { vouchHandler } from './commands/vouchHandler';
 import { vouchCallbacks } from './commands/vouchCallbacks';
+import { initializeBirthdayJob } from './jobs/birthdayJob';
 // Initialize your bot
 const bot = new Telegraf(config.botToken);
 
@@ -70,6 +71,8 @@ bot.action(/^\/veto_(up|down)$/, vetoVoteCommand);
 bot.launch()
   .then(() => {
     console.log('Bot is running!');
+    // Initialize birthday job after bot starts
+    initializeBirthdayJob(bot);
   })
   .catch((err) => {
     console.error('Bot launch failed:', err);
