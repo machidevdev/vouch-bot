@@ -482,7 +482,18 @@ export async function finalizeVouch(ctx: any, session: any) {
       }
 
       const vouchMessage = await ctx.telegram.sendPhoto(targetChatId, imageUrl, sendOptions);
-      
+
+      // Pin the message
+      try {
+        await ctx.telegram.pinChatMessage(targetChatId, vouchMessage.message_id, {
+          disable_notification: true
+        });
+        console.log('Successfully pinned vouch message');
+      } catch (error) {
+        console.error('Failed to pin message:', error);
+        // Continue anyway - pinning failure shouldn't break the flow
+      }
+
       // Update message ID in database
       await prisma.vote.update({
         where: { id: session.existingVoteId },
@@ -522,7 +533,18 @@ export async function finalizeVouch(ctx: any, session: any) {
       const vouchMessage = await ctx.telegram.sendPhoto(targetChatId, imageUrl, sendOptions);
 
       console.log('Vouch message created with ID:', vouchMessage.message_id);
-      
+
+      // Pin the message
+      try {
+        await ctx.telegram.pinChatMessage(targetChatId, vouchMessage.message_id, {
+          disable_notification: true
+        });
+        console.log('Successfully pinned vouch message');
+      } catch (error) {
+        console.error('Failed to pin message:', error);
+        // Continue anyway - pinning failure shouldn't break the flow
+      }
+
       // Save new vouch to database
       console.log('Saving new vouch to database...');
       await prisma.vote.create({

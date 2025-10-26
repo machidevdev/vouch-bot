@@ -158,11 +158,11 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
 
           const message = await ctx.replyWithPhoto(imageUrl, {
             caption: formatVoteMessage(
-              username.trim(), 
-              updatedUpvoters.length, 
-              updatedDownvoters.length, 
-              vouchersList, 
-              existingVote.status, 
+              username.trim(),
+              updatedUpvoters.length,
+              updatedDownvoters.length,
+              vouchersList,
+              existingVote.status,
               mergedDescription
             ),
             parse_mode: 'HTML',
@@ -173,6 +173,17 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
               ]]
             }
           });
+
+          // Pin the message
+          try {
+            await ctx.telegram.pinChatMessage(ctx.chat.id, message.message_id, {
+              disable_notification: true
+            });
+            console.log('Successfully pinned vouch message');
+          } catch (error) {
+            console.error('Failed to pin message:', error);
+            // Continue anyway - pinning failure shouldn't break the flow
+          }
 
           // Update the database with new message ID and vote data
           await prisma.vote.update({
@@ -238,11 +249,11 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
     
     const message = await ctx.replyWithPhoto(imageUrl, {
       caption: formatVoteMessage(
-        username.trim(), 
-        1, 
-        0, 
-        [currentUser], 
-        'pending', 
+        username.trim(),
+        1,
+        0,
+        [currentUser],
+        'pending',
         description?.trim() ?? ''
       ),
       parse_mode: 'HTML',
@@ -253,6 +264,17 @@ export const vouchCommand = Composer.command('vouch', async (ctx) => {
         ]]
       }
     });
+
+    // Pin the message
+    try {
+      await ctx.telegram.pinChatMessage(ctx.chat.id, message.message_id, {
+        disable_notification: true
+      });
+      console.log('Successfully pinned vouch message');
+    } catch (error) {
+      console.error('Failed to pin message:', error);
+      // Continue anyway - pinning failure shouldn't break the flow
+    }
 
     await prisma.vote.create({
       data: {

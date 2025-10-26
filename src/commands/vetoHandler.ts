@@ -329,6 +329,17 @@ export async function finalizeVeto(ctx: any, session: any) {
           }
         );
 
+        // Pin the message
+        try {
+          await ctx.telegram.pinChatMessage(config.allowedGroupId, message.message_id, {
+            disable_notification: true
+          });
+          console.log('Successfully pinned veto message');
+        } catch (error) {
+          console.error('Failed to pin message:', error);
+          // Continue anyway - pinning failure shouldn't break the flow
+        }
+
         // Send attached images as separate media group
         const mediaGroup = session.images.map((imageId: string) => ({
           type: 'photo' as const,
@@ -353,6 +364,17 @@ export async function finalizeVeto(ctx: any, session: any) {
             reply_markup: replyMarkup
           }
         );
+
+        // Pin the message
+        try {
+          await ctx.telegram.pinChatMessage(config.allowedGroupId, message.message_id, {
+            disable_notification: true
+          });
+          console.log('Successfully pinned veto message');
+        } catch (error) {
+          console.error('Failed to pin message:', error);
+          // Continue anyway - pinning failure shouldn't break the flow
+        }
       } else {
         // No images - use Twitter profile picture
         const profileImage = await getProfileImage(session.targetUsername);
@@ -366,6 +388,17 @@ export async function finalizeVeto(ctx: any, session: any) {
             reply_markup: replyMarkup
           }
         );
+
+        // Pin the message
+        try {
+          await ctx.telegram.pinChatMessage(config.allowedGroupId, message.message_id, {
+            disable_notification: true
+          });
+          console.log('Successfully pinned veto message');
+        } catch (error) {
+          console.error('Failed to pin message:', error);
+          // Continue anyway - pinning failure shouldn't break the flow
+        }
       }
 
       // Update record with message info (if not already done for media group)
